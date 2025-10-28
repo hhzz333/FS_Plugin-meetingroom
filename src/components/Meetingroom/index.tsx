@@ -31,6 +31,9 @@ interface IMeetingRoomConfig {
   showDate: boolean;
   showCurrentMeeting: boolean;
   title: string;
+  // 新增：单一会议室选择
+  showSingleRoom: boolean;
+  selectedRoomId: string;
 }
 
 /** 会议室信息接口 */
@@ -77,6 +80,9 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     showDate: true,
     showCurrentMeeting: true,
     title: t('meetingRoom.boardTitle', '会议室状态看板'),
+    // 新增默认值
+    showSingleRoom: false,
+    selectedRoomId: '',
   };
 
   const [config, setConfig] = useState<IMeetingRoomConfig>(defaultConfig);
@@ -86,6 +92,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   const [meetingRooms, setMeetingRooms] = useState<IMeetingRoom[]>([]);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
+  const [allRooms, setAllRooms] = useState<IMeetingRoom[]>([]); // 存储所有会议室用于选择
 
   const isCreate = dashboard.state === DashboardState.Create;
   const isConfig = dashboard.state === DashboardState.Config || isCreate;
@@ -102,34 +109,42 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     if (timer.current) {
       clearTimeout(timer.current);
     }
-    const { customConfig } = res;
     
-    if (customConfig) {
-      console.log('收到配置更新:', customConfig);
+    try {
+      const { customConfig } = res;
       
-      const validatedConfig: IMeetingRoomConfig = {
-        color: typeof customConfig.color === 'string' ? customConfig.color : defaultConfig.color,
-        roomTableId: typeof customConfig.roomTableId === 'string' ? customConfig.roomTableId : defaultConfig.roomTableId,
-        roomViewId: typeof customConfig.roomViewId === 'string' ? customConfig.roomViewId : defaultConfig.roomViewId,
-        bookingTableId: typeof customConfig.bookingTableId === 'string' ? customConfig.bookingTableId : defaultConfig.bookingTableId,
-        bookingViewId: typeof customConfig.bookingViewId === 'string' ? customConfig.bookingViewId : defaultConfig.bookingViewId,
-        roomNameFieldId: typeof customConfig.roomNameFieldId === 'string' ? customConfig.roomNameFieldId : defaultConfig.roomNameFieldId,
-        roomIdFieldId: typeof customConfig.roomIdFieldId === 'string' ? customConfig.roomIdFieldId : defaultConfig.roomIdFieldId,
-        bookingRoomFieldId: typeof customConfig.bookingRoomFieldId === 'string' ? customConfig.bookingRoomFieldId : defaultConfig.bookingRoomFieldId,
-        meetingTitleFieldId: typeof customConfig.meetingTitleFieldId === 'string' ? customConfig.meetingTitleFieldId : defaultConfig.meetingTitleFieldId,
-        startTimeFieldId: typeof customConfig.startTimeFieldId === 'string' ? customConfig.startTimeFieldId : defaultConfig.startTimeFieldId,
-        endTimeFieldId: typeof customConfig.endTimeFieldId === 'string' ? customConfig.endTimeFieldId : defaultConfig.endTimeFieldId,
-        organizerFieldId: typeof customConfig.organizerFieldId === 'string' ? customConfig.organizerFieldId : defaultConfig.organizerFieldId,
-        showDate: typeof customConfig.showDate === 'boolean' ? customConfig.showDate : defaultConfig.showDate,
-        showCurrentMeeting: typeof customConfig.showCurrentMeeting === 'boolean' ? customConfig.showCurrentMeeting : defaultConfig.showCurrentMeeting,
-        title: typeof customConfig.title === 'string' ? customConfig.title : defaultConfig.title,
-      };
-      
-      setConfig(validatedConfig);
-      timer.current = window.setTimeout(() => {
-        dashboard.setRendered();
-      }, 3000);
-    } else {
+      if (customConfig) {
+        console.log('收到配置更新:', customConfig);
+        
+        const validatedConfig: IMeetingRoomConfig = {
+          color: typeof customConfig.color === 'string' ? customConfig.color : defaultConfig.color,
+          roomTableId: typeof customConfig.roomTableId === 'string' ? customConfig.roomTableId : defaultConfig.roomTableId,
+          roomViewId: typeof customConfig.roomViewId === 'string' ? customConfig.roomViewId : defaultConfig.roomViewId,
+          bookingTableId: typeof customConfig.bookingTableId === 'string' ? customConfig.bookingTableId : defaultConfig.bookingTableId,
+          bookingViewId: typeof customConfig.bookingViewId === 'string' ? customConfig.bookingViewId : defaultConfig.bookingViewId,
+          roomNameFieldId: typeof customConfig.roomNameFieldId === 'string' ? customConfig.roomNameFieldId : defaultConfig.roomNameFieldId,
+          roomIdFieldId: typeof customConfig.roomIdFieldId === 'string' ? customConfig.roomIdFieldId : defaultConfig.roomIdFieldId,
+          bookingRoomFieldId: typeof customConfig.bookingRoomFieldId === 'string' ? customConfig.bookingRoomFieldId : defaultConfig.bookingRoomFieldId,
+          meetingTitleFieldId: typeof customConfig.meetingTitleFieldId === 'string' ? customConfig.meetingTitleFieldId : defaultConfig.meetingTitleFieldId,
+          startTimeFieldId: typeof customConfig.startTimeFieldId === 'string' ? customConfig.startTimeFieldId : defaultConfig.startTimeFieldId,
+          endTimeFieldId: typeof customConfig.endTimeFieldId === 'string' ? customConfig.endTimeFieldId : defaultConfig.endTimeFieldId,
+          organizerFieldId: typeof customConfig.organizerFieldId === 'string' ? customConfig.organizerFieldId : defaultConfig.organizerFieldId,
+          showDate: typeof customConfig.showDate === 'boolean' ? customConfig.showDate : defaultConfig.showDate,
+          showCurrentMeeting: typeof customConfig.showCurrentMeeting === 'boolean' ? customConfig.showCurrentMeeting : defaultConfig.showCurrentMeeting,
+          title: typeof customConfig.title === 'string' ? customConfig.title : defaultConfig.title,
+          showSingleRoom: typeof customConfig.showSingleRoom === 'boolean' ? customConfig.showSingleRoom : defaultConfig.showSingleRoom,
+          selectedRoomId: typeof customConfig.selectedRoomId === 'string' ? customConfig.selectedRoomId : defaultConfig.selectedRoomId,
+        };
+        
+        setConfig(validatedConfig);
+        timer.current = window.setTimeout(() => {
+          dashboard.setRendered();
+        }, 3000);
+      } else {
+        setConfig(defaultConfig);
+      }
+    } catch (error) {
+      console.error('配置解析失败:', error);
       setConfig(defaultConfig);
     }
   }, [defaultConfig]);
@@ -259,7 +274,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       [FieldType.Phone]: '电话',
       [FieldType.Url]: 'URL',
       [FieldType.Attachment]: '附件',
-      [FieldType.SingleLink]: '单向关联',  // 使用正确的字段类型
+      [FieldType.SingleLink]: '单向关联',
       [FieldType.Lookup]: '查找引用',
       [FieldType.Formula]: '公式',
       [FieldType.CreatedTime]: '创建时间',
@@ -273,7 +288,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       [FieldType.Rating]: '评分',
       [FieldType.Location]: '地理位置',
       [FieldType.GroupChat]: '群组',
-      [FieldType.DuplexLink]: '双向关联'  // 双向关联字段
+      [FieldType.DuplexLink]: '双向关联'
     };
     
     return typeMap[type] || `未知类型(${type})`;
@@ -289,6 +304,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
       
       setLoading(true);
+      console.log('开始加载会议数据...');
       
       // 1. 从会议室表加载所有会议室
       const roomTable = await bitable.base.getTableById(config.roomTableId);
@@ -306,7 +322,9 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
       
       const rooms: IMeetingRoom[] = [];
-      const roomIdMap = new Map<string, IMeetingRoom>();
+      const roomNameMap = new Map<string, IMeetingRoom>();
+      
+      console.log(`找到 ${roomRecords.length} 个会议室记录`);
       
       for (const record of roomRecords) {
         try {
@@ -314,32 +332,31 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           const roomNameCell = await roomTable.getCellValue(config.roomNameFieldId, record.id);
           const roomName = extractTextFromCell(roomNameCell);
           
-          if (!roomName) continue;
-          
-          // 获取会议室ID（如果配置了ID字段，否则使用记录ID）
-          let roomId = record.id;
-          if (config.roomIdFieldId) {
-            const roomIdCell = await roomTable.getCellValue(config.roomIdFieldId, record.id);
-            const customRoomId = extractTextFromCell(roomIdCell);
-            if (customRoomId) {
-              roomId = customRoomId;
-            }
+          if (!roomName) {
+            console.log(`记录 ${record.id} 没有会议室名称，跳过`);
+            continue;
           }
+          
+          console.log(`处理会议室: ${roomName}`);
           
           const room: IMeetingRoom = {
             id: record.id,
             name: roomName,
-            roomId: roomId,
+            roomId: record.id,
             todayMeetings: [],
             status: 'available'
           };
           
           rooms.push(room);
-          roomIdMap.set(roomId, room);
+          roomNameMap.set(roomName, room);
+          console.log(`添加会议室到映射: ${roomName}`);
         } catch (cellError) {
           console.warn('读取会议室记录失败:', cellError);
         }
       }
+      
+      console.log(`成功加载 ${rooms.length} 个会议室`);
+      console.log('会议室名称列表:', Array.from(roomNameMap.keys()));
       
       // 2. 从预定表加载今日预定
       const bookingTable = await bitable.base.getTableById(config.bookingTableId);
@@ -356,15 +373,36 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         bookingRecords = await bookingTable.getRecordList();
       }
       
+      console.log(`找到 ${bookingRecords.length} 个预定记录`);
+      
       const allMeetings: IMeeting[] = [];
+      let matchedCount = 0;
       
       for (const record of bookingRecords) {
         try {
-          // 获取关联的会议室
+          // 获取关联的会议室 - 通过文本内容匹配
           const bookingRoomCell = await bookingTable.getCellValue(config.bookingRoomFieldId, record.id);
-          const bookingRoomId = extractReferenceFromCell(bookingRoomCell);
+          console.log(`预定记录 ${record.id} 的会议室字段:`, bookingRoomCell);
           
-          if (!bookingRoomId) continue;
+          // 从预定表的会议室字段提取文本内容
+          const bookingRoomName = extractTextFromCell(bookingRoomCell);
+          console.log(`提取的会议室名称: "${bookingRoomName}"`);
+          
+          if (!bookingRoomName) {
+            console.log(`预定记录 ${record.id} 没有会议室名称，跳过`);
+            continue;
+          }
+          
+          // 通过名称匹配会议室
+          const matchedRoom = roomNameMap.get(bookingRoomName);
+          
+          if (!matchedRoom) {
+            console.log(`预定记录 ${record.id} 的会议室 "${bookingRoomName}" 未匹配到任何会议室`);
+            console.log('可用的会议室:', Array.from(roomNameMap.keys()));
+            continue;
+          }
+          
+          console.log(`成功匹配会议室: ${bookingRoomName} -> ${matchedRoom.name}`);
           
           // 获取会议标题
           const meetingTitleCell = config.meetingTitleFieldId ? 
@@ -378,6 +416,8 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           // 获取结束时间
           const endTimeCell = await bookingTable.getCellValue(config.endTimeFieldId, record.id);
           const endTime = extractDateTimeFromCell(endTimeCell);
+          
+          console.log(`解析的时间: 开始=${startTime}, 结束=${endTime}`);
           
           // 获取组织者
           let organizer = '未知';
@@ -393,32 +433,37 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
             
+            console.log(`今天范围: ${today} 到 ${tomorrow}`);
+            console.log(`会议时间: ${startTime}`);
+            
             if (startTime >= today && startTime < tomorrow) {
-              const room = Array.from(roomIdMap.values()).find(r => 
-                r.roomId === bookingRoomId || r.id === bookingRoomId
-              );
+              const meeting: IMeeting = {
+                id: record.id,
+                title: meetingTitle,
+                startTime,
+                endTime,
+                organizer,
+                roomName: matchedRoom.name,
+                roomId: matchedRoom.roomId,
+                status: getMeetingStatus(startTime, endTime, currentTime)
+              };
               
-              if (room) {
-                const meeting: IMeeting = {
-                  id: record.id,
-                  title: meetingTitle,
-                  startTime,
-                  endTime,
-                  organizer,
-                  roomName: room.name,
-                  roomId: room.roomId,
-                  status: getMeetingStatus(startTime, endTime, currentTime)
-                };
-                
-                allMeetings.push(meeting);
-                room.todayMeetings.push(meeting);
-              }
+              allMeetings.push(meeting);
+              matchedRoom.todayMeetings.push(meeting);
+              matchedCount++;
+              console.log(`成功添加会议: ${meetingTitle} 在 ${matchedRoom.name}`);
+            } else {
+              console.log(`会议 ${meetingTitle} 不在今天范围内`);
             }
+          } else {
+            console.log(`时间解析失败: 开始时间=${startTime}, 结束时间=${endTime}`);
           }
         } catch (cellError) {
-          console.warn('读取预定记录失败:', cellError);
+          console.warn('读取预定记录失败:', cellError, record.id);
         }
       }
+      
+      console.log(`成功匹配 ${matchedCount} 个预定到会议室`);
       
       // 3. 更新每个会议室的当前会议和状态
       const updatedRooms = rooms.map(room => {
@@ -432,6 +477,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         if (currentMeeting) {
           room.currentMeeting = currentMeeting;
           room.status = 'in-use';
+          console.log(`会议室 ${room.name} 正在使用中`);
         } else {
           // 检查是否有即将开始的会议（15分钟内）
           const nextMeeting = room.todayMeetings.find(meeting => 
@@ -439,22 +485,47 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
             (meeting.startTime.getTime() - currentTime.getTime()) <= 15 * 60 * 1000
           );
           room.status = nextMeeting ? 'soon' : 'available';
+          console.log(`会议室 ${room.name} 状态: ${room.status}`);
         }
         
         return room;
       });
+
+      // 保存所有会议室用于选择
+      setAllRooms(updatedRooms);
       
-      setMeetingRooms(updatedRooms);
+      // 4. 如果启用了单一会议室显示，过滤数据
+      let finalRooms = updatedRooms;
+
+      if (config.showSingleRoom && config.selectedRoomId) {
+        console.log('启用单一会议室显示，选择ID:', config.selectedRoomId);
+        
+        // 查找选定的会议室
+        const selectedRoom = updatedRooms.find(room => 
+          room.id === config.selectedRoomId || room.roomId === config.selectedRoomId
+        );
+        
+        if (selectedRoom) {
+          finalRooms = [selectedRoom];
+          console.log(`只显示会议室: ${selectedRoom.name}`);
+        } else {
+          console.log('未找到选定的会议室，显示所有会议室');
+          finalRooms = updatedRooms;
+        }
+      }
+      
+      setMeetingRooms(finalRooms);
       
       if (updatedRooms.length === 0) {
         Toast.warning(t('meetingRoom.noRoomsData'));
       } else if (allMeetings.length === 0) {
-        Toast.warning(t('meetingRoom.noBookingsData'));
+        Toast.warning('找到会议室但未匹配到今日预定');
+        console.log('可能的问题:');
+        console.log('- 会议室名称不匹配（注意空格和大小写）');
+        console.log('- 时间字段格式问题');
+        console.log('- 没有今日预定数据');
       } else {
-        Toast.success(t('meetingRoom.loadSuccess', { 
-          roomCount: updatedRooms.length, 
-          bookingCount: allMeetings.length 
-        }));
+        Toast.success(`加载成功: ${finalRooms.length}个会议室, ${allMeetings.length}个预定`);
       }
     } catch (error) {
       console.error('加载会议数据失败:', error);
@@ -468,21 +539,39 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   const extractTextFromCell = (cellValue: any): string => {
     if (!cellValue) return '';
     
+    console.log('提取文本，原始数据:', cellValue);
+    
+    // 如果是字符串，直接返回
     if (typeof cellValue === 'string') {
       return cellValue.trim();
-    } else if (cellValue && typeof cellValue === 'object') {
+    }
+    
+    // 如果是对象且有text属性
+    if (cellValue && typeof cellValue === 'object') {
       if (cellValue.text) {
         return String(cellValue.text).trim();
-      } else if (Array.isArray(cellValue) && cellValue.length > 0) {
+      }
+      
+      // 处理单选字段
+      if (cellValue.name) {
+        return String(cellValue.name).trim();
+      }
+      
+      // 处理关联字段
+      if (Array.isArray(cellValue) && cellValue.length > 0) {
         const firstItem = cellValue[0];
         if (firstItem && firstItem.text) {
           return String(firstItem.text).trim();
+        } else if (firstItem && firstItem.name) {
+          return String(firstItem.name).trim();
         } else if (typeof firstItem === 'string') {
           return firstItem.trim();
         }
       }
     }
-    return '';
+    
+    // 其他情况转为字符串
+    return String(cellValue).trim();
   };
 
   // 辅助函数：从关联字段提取引用ID
@@ -569,6 +658,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.roomTableId, config.bookingTableId,
     config.roomNameFieldId, config.bookingRoomFieldId,
     config.startTimeFieldId, config.endTimeFieldId,
+    config.showSingleRoom, config.selectedRoomId, // 添加依赖
     isConfig, loadMeetingData
   ]);
 
@@ -615,6 +705,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           tables={tables}
           roomFields={roomFields}
           bookingFields={bookingFields}
+          allRooms={allRooms}
           loading={loading}
           onRefreshData={loadMeetingData}
         />
@@ -634,7 +725,7 @@ interface IMeetingRoomView {
 }
 
 function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading, t }: IMeetingRoomView) {
-  const { color, showDate, showCurrentMeeting, title } = config;
+  const { color, showDate, showCurrentMeeting, title, showSingleRoom } = config;
   
   // 格式化时间显示
   const formatTime = (date: Date): string => {
@@ -714,7 +805,19 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
         <div className="board-content">
           {/* 左侧：会议室状态概览 */}
           <div className="rooms-overview">
-            <h2 className="section-title">{t('meetingRoom.roomStatus')}</h2>
+            <h2 className="section-title">
+              {t('meetingRoom.roomStatus')}
+              {showSingleRoom && meetingRooms.length === 1 && (
+                <span style={{ 
+                  fontSize: '14px', 
+                  color: '#666', 
+                  marginLeft: '12px',
+                  fontWeight: 'normal'
+                }}>
+                  (单一会议室模式)
+                </span>
+              )}
+            </h2>
             <div className="rooms-grid">
               {meetingRooms.map(room => (
                 <div 
@@ -824,22 +927,51 @@ function ConfigPanel(props: {
   tables: {id: string, name: string}[];
   roomFields: IFieldInfo[];
   bookingFields: IFieldInfo[];
+  allRooms: IMeetingRoom[];
   loading: boolean;
   onRefreshData: () => void;
   t: any;
 }) {
-  const { config, setConfig, tables, roomFields, bookingFields, loading, onRefreshData, t } = props;
+  const { config, setConfig, tables, roomFields, bookingFields, allRooms, loading, onRefreshData, t } = props;
 
   const onSaveConfig = () => {
-    dashboard.saveConfig({
-      customConfig: config,
-      dataConditions: [],
-    } as any).then(() => {
-      Toast.success(t('confirm', '配置保存成功'));
-    }).catch((error: any) => {
-      console.error('保存配置失败:', error);
-      Toast.error('保存配置失败');
-    });
+    try {
+      // 确保配置数据是有效的
+      const configToSave = {
+        color: config.color || DEFAULT_COLOR,
+        roomTableId: config.roomTableId || '',
+        roomViewId: config.roomViewId || '',
+        bookingTableId: config.bookingTableId || '',
+        bookingViewId: config.bookingViewId || '',
+        roomNameFieldId: config.roomNameFieldId || '',
+        roomIdFieldId: config.roomIdFieldId || '',
+        bookingRoomFieldId: config.bookingRoomFieldId || '',
+        meetingTitleFieldId: config.meetingTitleFieldId || '',
+        startTimeFieldId: config.startTimeFieldId || '',
+        endTimeFieldId: config.endTimeFieldId || '',
+        organizerFieldId: config.organizerFieldId || '',
+        showDate: config.showDate !== undefined ? config.showDate : true,
+        showCurrentMeeting: config.showCurrentMeeting !== undefined ? config.showCurrentMeeting : true,
+        title: config.title || t('meetingRoom.boardTitle', '会议室状态看板'),
+        showSingleRoom: config.showSingleRoom !== undefined ? config.showSingleRoom : false,
+        selectedRoomId: config.selectedRoomId || '',
+      };
+
+      console.log('保存配置:', configToSave);
+
+      dashboard.saveConfig({
+        customConfig: configToSave,
+        dataConditions: [],
+      }).then(() => {
+        Toast.success(t('confirm', '配置保存成功'));
+      }).catch((error: any) => {
+        console.error('保存配置失败:', error);
+        Toast.error('保存配置失败: ' + (error.message || '未知错误'));
+      });
+    } catch (error) {
+      console.error('配置序列化失败:', error);
+      Toast.error('配置保存失败');
+    }
   };
 
   const handleRoomTableChange = (value: any) => {
@@ -850,6 +982,7 @@ function ConfigPanel(props: {
       roomViewId: '',
       roomNameFieldId: '',
       roomIdFieldId: '',
+      selectedRoomId: '', // 清空选择的会议室
     });
   };
 
@@ -931,6 +1064,60 @@ function ConfigPanel(props: {
                 />
               </div>
             </div>
+          </div>
+
+          {/* 单一会议室选择 */}
+          <div className='config-subsection'>
+            <h4 style={{ 
+              margin: '24px 0 12px 0', 
+              color: '#333', 
+              fontSize: '14px', 
+              fontWeight: '600',
+              padding: '8px 12px',
+              background: '#fff2e8',
+              borderRadius: '4px'
+            }}>
+              显示设置
+            </h4>
+            
+            <div className='config-item'>
+              <label className='config-label'>显示单一会议室</label>
+              <div className='config-content'>
+                <input
+                  type="checkbox"
+                  checked={config.showSingleRoom}
+                  onChange={(e) => setConfig({...config, showSingleRoom: e.target.checked})}
+                />
+                <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>
+                  启用后只显示选定的会议室
+                </span>
+              </div>
+            </div>
+
+            {config.showSingleRoom && (
+              <div className='config-item'>
+                <label className='config-label'>选择会议室</label>
+                <div className='config-content'>
+                  <Select
+                    value={config.selectedRoomId}
+                    onChange={(value) => setConfig({...config, selectedRoomId: String(value)})}
+                    style={{ width: '100%' }}
+                    placeholder="请选择要显示的会议室"
+                    disabled={allRooms.length === 0}
+                    loading={loading}
+                  >
+                    {allRooms.map((room) => (
+                      <Select.Option key={room.id} value={room.id}>
+                        {room.name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    {allRooms.length === 0 ? '请先加载数据' : `共 ${allRooms.length} 个会议室可选`}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 会议室表配置 */}
@@ -1065,7 +1252,8 @@ function ConfigPanel(props: {
                     .filter(field => 
                       field.type.includes('单向关联') || 
                       field.type.includes('双向关联') || 
-                      field.type.includes('单选')
+                      field.type.includes('单选') ||
+                      field.type.includes('文本')
                     )
                     .map((field) => (
                     <Select.Option key={field.id} value={field.id}>
@@ -1206,7 +1394,8 @@ function ConfigPanel(props: {
                       </div>
                       <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
                         • 会议室表: {tables.find(t => t.id === config.roomTableId)?.name}<br/>
-                        • 预定表: {tables.find(t => t.id === config.bookingTableId)?.name}
+                        • 预定表: {tables.find(t => t.id === config.bookingTableId)?.name}<br/>
+                        • 显示模式: {config.showSingleRoom ? '单一会议室' : '所有会议室'}
                       </div>
                     </div>
                   ) : (

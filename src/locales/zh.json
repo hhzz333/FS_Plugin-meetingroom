@@ -51,7 +51,11 @@
     "roomTableConfig": "会议室表配置",
     "bookingTableConfig": "预定表配置",
     "roomView": "会议室视图",
-    "bookingView": "预定视图"
+    "bookingView": "预定视图",
+    "singleRoomMode": "单一会议室模式",
+    "selectSingleRoom": "选择单一会议室",
+    "showSingleRoom": "显示单一会议室",
+    "singleRoomHint": "启用后只显示选定的会议室"
   },
   "confirm": "确认保存"
 }
