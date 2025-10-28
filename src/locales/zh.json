@@ -55,7 +55,25 @@
     "singleRoomMode": "单一会议室模式",
     "selectSingleRoom": "选择单一会议室",
     "showSingleRoom": "显示单一会议室",
-    "singleRoomHint": "启用后只显示选定的会议室"
+    "singleRoomHint": "启用后只显示选定的会议室",
+    "singleRoomDisplay": "单一会议室显示",
+    "selectRoomToDisplay": "选择要显示的会议室",
+    "singleRoomModeActive": "单一会议室模式",
+    "todayTimeline": "今日会议时间轴",
+    "inProgress": "进行中",
+    "comingSoon": "即将开始",
+    "finished": "已结束",
+    "roomOccupancy": "会议室占用状态",
+    "timeRemaining": "剩余时间",
+    "timeElapsed": "已用时间",
+    "noRoomsAvailable": "无可用会议室",
+    "allRoomsOccupied": "所有会议室均被占用",
+    "refreshData": "刷新数据",
+    "dataStatus": "数据状态",
+    "configurationComplete": "配置完整",
+    "incompleteConfiguration": "配置不完整",
+    "clickToRefresh": "点击刷新按钮加载数据",
+    "completeConfigurationFirst": "请先完成以上所有必要字段的配置"
   },
   "confirm": "确认保存"
 }

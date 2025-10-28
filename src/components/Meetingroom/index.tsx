@@ -533,7 +533,18 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     } finally {
       setLoading(false);
     }
-  }, [config, currentTime, t]);
+  }, [
+    config.roomTableId, 
+    config.bookingTableId,
+    config.roomNameFieldId, 
+    config.bookingRoomFieldId,
+    config.startTimeFieldId, 
+    config.endTimeFieldId,
+    config.showSingleRoom, 
+    config.selectedRoomId,
+    currentTime,
+    t
+  ]);
 
   // 辅助函数：从单元格提取文本
   const extractTextFromCell = (cellValue: any): string => {
@@ -572,26 +583,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     
     // 其他情况转为字符串
     return String(cellValue).trim();
-  };
-
-  // 辅助函数：从关联字段提取引用ID
-  const extractReferenceFromCell = (cellValue: any): string => {
-    if (!cellValue) return '';
-    
-    if (Array.isArray(cellValue) && cellValue.length > 0) {
-      const firstItem = cellValue[0];
-      if (firstItem && firstItem.id) {
-        return firstItem.id;
-      } else if (typeof firstItem === 'string') {
-        return firstItem;
-      }
-    } else if (cellValue && typeof cellValue === 'object' && cellValue.id) {
-      return cellValue.id;
-    } else if (typeof cellValue === 'string') {
-      return cellValue;
-    }
-    
-    return '';
   };
 
   // 辅助函数：从单元格提取日期时间
@@ -658,22 +649,52 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.roomTableId, config.bookingTableId,
     config.roomNameFieldId, config.bookingRoomFieldId,
     config.startTimeFieldId, config.endTimeFieldId,
-    config.showSingleRoom, config.selectedRoomId, // 添加依赖
+    config.showSingleRoom, config.selectedRoomId,
     isConfig, loadMeetingData
   ]);
 
-  // 定期刷新数据
+  // 定期刷新数据 - 修复版本
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (config.roomTableId && config.bookingTableId && 
-          config.roomNameFieldId && config.bookingRoomFieldId && 
-          config.startTimeFieldId && config.endTimeFieldId && !isConfig) {
-        loadMeetingData();
-      }
+    // 在配置模式下不启用定时刷新
+    if (isConfig) {
+      return;
+    }
+    
+    // 检查必要的配置是否完整
+    const hasRequiredConfig = 
+      config.roomTableId && 
+      config.bookingTableId && 
+      config.roomNameFieldId && 
+      config.bookingRoomFieldId && 
+      config.startTimeFieldId && 
+      config.endTimeFieldId;
+    
+    if (!hasRequiredConfig) {
+      return;
+    }
+    
+    console.log('启动数据定时刷新，间隔30秒');
+    
+    const interval = window.setInterval(() => {
+      console.log('定时刷新会议数据...');
+      loadMeetingData();
     }, 30000); // 每30秒刷新一次
     
-    return () => clearInterval(interval);
-  }, [config, isConfig, loadMeetingData]);
+    // 清理函数
+    return () => {
+      console.log('清理数据刷新定时器');
+      clearInterval(interval);
+    };
+  }, [
+    isConfig,
+    config.roomTableId,
+    config.bookingTableId,
+    config.roomNameFieldId,
+    config.bookingRoomFieldId,
+    config.startTimeFieldId,
+    config.endTimeFieldId,
+    loadMeetingData
+  ]);
 
   return (
     <main 
@@ -784,7 +805,9 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
   }
 
   return (
-    <div className="meeting-room-board">
+    <div className={classnames("meeting-room-board", {
+      "single-room-mode": showSingleRoom && meetingRooms.length === 1
+    })}>
       {/* 标题区域 */}
       <div className="board-header" style={{ color }}>
         <h1 className="board-title">{title}</h1>
@@ -828,23 +851,40 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
                     'soon': room.status === 'soon'
                   })}
                 >
-                  <div className="room-header">
-                    <h3 className="room-name">{room.name}</h3>
-                    <div className="room-status">
+                  {/* 单一会议室模式的状态指示器 */}
+                  {showSingleRoom && meetingRooms.length === 1 && (
+                    <div className={classnames('room-status-indicator', room.status)}>
                       {room.status === 'available' && '🟢 ' + t('meetingRoom.available')}
                       {room.status === 'in-use' && '🔴 ' + t('meetingRoom.inUse')}
                       {room.status === 'soon' && '🟡 ' + t('meetingRoom.soon')}
                     </div>
+                  )}
+                  
+                  <div className={classnames('room-header', {
+                    'single-room-header': showSingleRoom && meetingRooms.length === 1
+                  })}>
+                    <h3 className="room-name">{room.name}</h3>
+                    {(!showSingleRoom || meetingRooms.length > 1) && (
+                      <div className="room-status">
+                        {room.status === 'available' && '🟢 ' + t('meetingRoom.available')}
+                        {room.status === 'in-use' && '🔴 ' + t('meetingRoom.inUse')}
+                        {room.status === 'soon' && '🟡 ' + t('meetingRoom.soon')}
+                      </div>
+                    )}
                   </div>
                   
                   {showCurrentMeeting && room.currentMeeting && (
-                    <div className="current-meeting">
+                    <div className={classnames('current-meeting', {
+                      'single-room-current-meeting': showSingleRoom && meetingRooms.length === 1
+                    })}>
                       <div className="meeting-title">{room.currentMeeting.title}</div>
                       <div className="meeting-time">
                         {formatTime(room.currentMeeting.startTime)} - {formatTime(room.currentMeeting.endTime)}
                       </div>
                       <div className="meeting-organizer">{t('meetingRoom.organizer')}: {room.currentMeeting.organizer}</div>
-                      <div className="meeting-progress">
+                      <div className={classnames('meeting-progress', {
+                        'single-room-progress': showSingleRoom && meetingRooms.length === 1
+                      })}>
                         <div className="progress-text">
                           {t('meetingRoom.elapsedTime')}: {getElapsedTime(room.currentMeeting.startTime)}
                         </div>
@@ -856,7 +896,9 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
                   )}
                   
                   {room.status === 'soon' && !room.currentMeeting && room.todayMeetings.length > 0 && (
-                    <div className="next-meeting">
+                    <div className={classnames('next-meeting', {
+                      'single-room-next-meeting': showSingleRoom && meetingRooms.length === 1
+                    })}>
                       <div className="next-meeting-label">{t('meetingRoom.nextMeeting')}:</div>
                       {room.todayMeetings.find(m => m.status === 'upcoming') && (
                         <div className="next-meeting-info">
@@ -868,6 +910,33 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* 单一会议室模式的时间轴 */}
+                  {showSingleRoom && meetingRooms.length === 1 && room.todayMeetings.length > 0 && (
+                    <div className="room-timeline">
+                      <div className="timeline-title">今日会议时间轴</div>
+                      <div className="timeline-items">
+                        {room.todayMeetings.map((meeting, index) => (
+                          <div 
+                            key={meeting.id} 
+                            className={classnames('timeline-item', {
+                              'current': meeting.status === 'ongoing'
+                            })}
+                          >
+                            <div className="timeline-time">
+                              {formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}
+                            </div>
+                            <div className="timeline-title">{meeting.title}</div>
+                            <div className={classnames('timeline-status', meeting.status)}>
+                              {meeting.status === 'ongoing' && '进行中'}
+                              {meeting.status === 'upcoming' && '即将开始'}
+                              {meeting.status === 'completed' && '已结束'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
