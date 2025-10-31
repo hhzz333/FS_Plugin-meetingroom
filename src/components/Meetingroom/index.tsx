@@ -92,9 +92,42 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   const [loading, setLoading] = useState(false);
   const [allRooms, setAllRooms] = useState<IMeetingRoom[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const isCreate = dashboard.state === DashboardState.Create;
   const isConfig = dashboard.state === DashboardState.Config || isCreate;
+
+  // 使用 ref 来跟踪配置状态变化
+  const configRef = useRef(config);
+  const isConfigRef = useRef(isConfig);
+
+  useEffect(() => {
+    configRef.current = config;
+    isConfigRef.current = isConfig;
+  }, [config, isConfig]);
+
+  // 监听全屏状态变化 - 修复版本
+  useEffect(() => {
+    const checkFullscreen = () => {
+      try {
+        const fullscreenState = dashboard.state === DashboardState.FullScreen;
+        setIsFullscreen(fullscreenState);
+        console.log('全屏状态:', fullscreenState, '当前状态:', dashboard.state);
+      } catch (error) {
+        console.error('检查全屏状态失败:', error);
+      }
+    };
+
+    // 初始检查
+    checkFullscreen();
+
+    // 使用轮询方式检测全屏状态变化（最可靠的方式）
+    const interval = setInterval(checkFullscreen, 2000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (isCreate) {
@@ -301,16 +334,20 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
 
   /** 从两个表加载会议室和会议数据 */
   const loadMeetingData = useCallback(async (showToast: boolean = false) => {
+    // 使用 ref 来获取最新的配置状态，避免闭包问题
+    const currentIsConfig = isConfigRef.current;
+    const currentConfig = configRef.current;
+
     // 在配置模式下不加载数据
-    if (isConfig && !showToast) {
+    if (currentIsConfig && !showToast) {
       console.log('配置模式下跳过数据加载');
       return;
     }
 
     try {
-      if (!config.roomTableId || !config.bookingTableId || 
-          !config.roomNameFieldId || !config.bookingRoomFieldId || 
-          !config.startTimeFieldId || !config.endTimeFieldId) {
+      if (!currentConfig.roomTableId || !currentConfig.bookingTableId || 
+          !currentConfig.roomNameFieldId || !currentConfig.bookingRoomFieldId || 
+          !currentConfig.startTimeFieldId || !currentConfig.endTimeFieldId) {
         console.log('配置不完整，跳过数据加载');
         return;
       }
@@ -319,12 +356,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       console.log('开始加载会议数据...', new Date().toISOString());
       
       // 1. 从会议室表加载所有会议室
-      const roomTable = await bitable.base.getTableById(config.roomTableId);
+      const roomTable = await bitable.base.getTableById(currentConfig.roomTableId);
       let roomRecords;
       
-      if (config.roomViewId) {
+      if (currentConfig.roomViewId) {
         try {
-          roomRecords = await (roomTable as any).getRecordList({ viewId: config.roomViewId });
+          roomRecords = await (roomTable as any).getRecordList({ viewId: currentConfig.roomViewId });
         } catch (viewError) {
           console.warn('使用会议室视图获取记录失败，使用默认方式:', viewError);
           roomRecords = await roomTable.getRecordList();
@@ -333,15 +370,17 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         roomRecords = await roomTable.getRecordList();
       }
       
+      // 修复：正确获取记录数量
+      const roomRecordsLength = Array.isArray(roomRecords) ? roomRecords.length : 0;
+      console.log(`找到 ${roomRecordsLength} 个会议室记录`);
+      
       const rooms: IMeetingRoom[] = [];
       const roomNameMap = new Map<string, IMeetingRoom>();
-      
-      console.log(`找到 ${roomRecords.length} 个会议室记录`);
       
       for (const record of roomRecords) {
         try {
           // 获取会议室名称
-          const roomNameCell = await roomTable.getCellValue(config.roomNameFieldId, record.id);
+          const roomNameCell = await roomTable.getCellValue(currentConfig.roomNameFieldId, record.id);
           const roomName = extractTextFromCell(roomNameCell);
           
           if (!roomName) {
@@ -361,7 +400,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           
           rooms.push(room);
           roomNameMap.set(roomName, room);
-          console.log(`添加会议室到映射: ${roomName}`);
         } catch (cellError) {
           console.warn('读取会议室记录失败:', cellError);
         }
@@ -370,12 +408,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       console.log(`成功加载 ${rooms.length} 个会议室`);
       
       // 2. 从预定表加载今日预定
-      const bookingTable = await bitable.base.getTableById(config.bookingTableId);
+      const bookingTable = await bitable.base.getTableById(currentConfig.bookingTableId);
       let bookingRecords;
       
-      if (config.bookingViewId) {
+      if (currentConfig.bookingViewId) {
         try {
-          bookingRecords = await (bookingTable as any).getRecordList({ viewId: config.bookingViewId });
+          bookingRecords = await (bookingTable as any).getRecordList({ viewId: currentConfig.bookingViewId });
         } catch (viewError) {
           console.warn('使用预定视图获取记录失败，使用默认方式:', viewError);
           bookingRecords = await bookingTable.getRecordList();
@@ -384,7 +422,9 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         bookingRecords = await bookingTable.getRecordList();
       }
       
-      console.log(`找到 ${bookingRecords.length} 个预定记录`);
+      // 修复：正确获取记录数量
+      const bookingRecordsLength = Array.isArray(bookingRecords) ? bookingRecords.length : 0;
+      console.log(`找到 ${bookingRecordsLength} 个预定记录`);
       
       const allMeetings: IMeeting[] = [];
       let matchedCount = 0;
@@ -392,7 +432,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       for (const record of bookingRecords) {
         try {
           // 获取关联的会议室 - 通过文本内容匹配
-          const bookingRoomCell = await bookingTable.getCellValue(config.bookingRoomFieldId, record.id);
+          const bookingRoomCell = await bookingTable.getCellValue(currentConfig.bookingRoomFieldId, record.id);
           
           // 从预定表的会议室字段提取文本内容
           const bookingRoomName = extractTextFromCell(bookingRoomCell);
@@ -413,22 +453,22 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           console.log(`成功匹配会议室: ${bookingRoomName} -> ${matchedRoom.name}`);
           
           // 获取会议标题
-          const meetingTitleCell = config.meetingTitleFieldId ? 
-            await bookingTable.getCellValue(config.meetingTitleFieldId, record.id) : null;
+          const meetingTitleCell = currentConfig.meetingTitleFieldId ? 
+            await bookingTable.getCellValue(currentConfig.meetingTitleFieldId, record.id) : null;
           const meetingTitle = extractTextFromCell(meetingTitleCell) || '未命名会议';
           
           // 获取开始时间
-          const startTimeCell = await bookingTable.getCellValue(config.startTimeFieldId, record.id);
+          const startTimeCell = await bookingTable.getCellValue(currentConfig.startTimeFieldId, record.id);
           const startTime = extractDateTimeFromCell(startTimeCell);
           
           // 获取结束时间
-          const endTimeCell = await bookingTable.getCellValue(config.endTimeFieldId, record.id);
+          const endTimeCell = await bookingTable.getCellValue(currentConfig.endTimeFieldId, record.id);
           const endTime = extractDateTimeFromCell(endTimeCell);
           
           // 获取组织者
           let organizer = '未知';
-          if (config.organizerFieldId) {
-            const organizerCell = await bookingTable.getCellValue(config.organizerFieldId, record.id);
+          if (currentConfig.organizerFieldId) {
+            const organizerCell = await bookingTable.getCellValue(currentConfig.organizerFieldId, record.id);
             organizer = extractTextFromCell(organizerCell) || '未知';
           }
           
@@ -493,12 +533,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       // 4. 如果启用了单一会议室显示，过滤数据
       let finalRooms = updatedRooms;
 
-      if (config.showSingleRoom && config.selectedRoomId) {
-        console.log('启用单一会议室显示，选择ID:', config.selectedRoomId);
+      if (currentConfig.showSingleRoom && currentConfig.selectedRoomId) {
+        console.log('启用单一会议室显示，选择ID:', currentConfig.selectedRoomId);
         
         // 查找选定的会议室
         const selectedRoom = updatedRooms.find(room => 
-          room.id === config.selectedRoomId || room.roomId === config.selectedRoomId
+          room.id === currentConfig.selectedRoomId || room.roomId === currentConfig.selectedRoomId
         );
         
         if (selectedRoom) {
@@ -536,21 +576,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     } finally {
       setLoading(false);
     }
-  }, [
-    config.roomTableId, 
-    config.bookingTableId,
-    config.roomNameFieldId, 
-    config.bookingRoomFieldId,
-    config.startTimeFieldId, 
-    config.endTimeFieldId,
-    config.showSingleRoom, 
-    config.selectedRoomId,
-    config.roomViewId,
-    config.bookingViewId,
-    currentTime,
-    t,
-    isConfig
-  ]);
+  }, [currentTime, t]);
 
   // 辅助函数：从单元格提取文本
   const extractTextFromCell = (cellValue: any): string => {
@@ -644,8 +670,11 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
 
   // 主要的数据加载逻辑
   useEffect(() => {
+    console.log('主要数据加载 useEffect 触发', { isConfig, dataLoaded });
+    
     // 在配置模式下不加载数据
     if (isConfig) {
+      console.log('配置模式下跳过数据加载');
       return;
     }
 
@@ -663,23 +692,30 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       return;
     }
 
+    // 如果数据已经加载过，避免重复加载
+    if (dataLoaded) {
+      console.log('数据已加载，跳过重复加载');
+      return;
+    }
+
     console.log('触发数据加载');
     loadMeetingData(false); // 非配置界面不显示成功提示
   }, [
+    isConfig,
     config.roomTableId,
     config.bookingTableId,
     config.roomNameFieldId,
     config.bookingRoomFieldId,
     config.startTimeFieldId,
     config.endTimeFieldId,
-    config.showSingleRoom,
-    config.selectedRoomId,
-    isConfig,
+    dataLoaded,
     loadMeetingData
   ]);
 
   // 定期刷新数据 - 只在非配置模式下运行
   useEffect(() => {
+    console.log('定时刷新 useEffect 触发', { isConfig, dataLoaded });
+    
     if (isConfig) {
       console.log('配置模式下不启动定时刷新');
       return;
@@ -731,7 +767,11 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         position: 'relative',
         transition: 'padding-right 0.3s ease'
       }} 
-      className={classnames({'main-config': isConfig, 'main': true})}
+      className={classnames({
+        'main-config': isConfig, 
+        'main': true,
+        'fullscreen-mode': isFullscreen
+      })}
     >
       <div className='content'>
         <MeetingRoomView
@@ -740,6 +780,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           meetingRooms={meetingRooms}
           currentTime={currentTime}
           isConfig={isConfig}
+          isFullscreen={isFullscreen}
           loading={loading}
         />
       </div>
@@ -767,11 +808,12 @@ interface IMeetingRoomView {
   meetingRooms: IMeetingRoom[];
   currentTime: Date;
   isConfig: boolean;
+  isFullscreen: boolean;
   loading: boolean;
   t: any;
 }
 
-function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading, t }: IMeetingRoomView) {
+function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullscreen, loading, t }: IMeetingRoomView) {
   const { color, showDate, showCurrentMeeting, title, showSingleRoom } = config;
   
   // 格式化时间显示
@@ -832,7 +874,8 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
 
   return (
     <div className={classnames("meeting-room-board", {
-      "single-room-mode": showSingleRoom && meetingRooms.length === 1
+      "single-room-mode": showSingleRoom && meetingRooms.length === 1,
+      "fullscreen-mode": isFullscreen
     })}>
       {/* 标题区域 */}
       <div className="board-header" style={{ color }}>
@@ -841,6 +884,12 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
           <div className="current-date-time">
             <div className="current-date">{formatDate(currentTime)}</div>
             <div className="current-time">{formatTime(currentTime)}</div>
+          </div>
+        )}
+        {/* 全屏状态指示器 */}
+        {isFullscreen && (
+          <div className="fullscreen-indicator">
+            🚀 全屏演示模式
           </div>
         )}
       </div>
@@ -939,29 +988,24 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, loading,
                     </div>
                   )}
 
-                  {/* 单一会议室模式的时间轴 */}
-                  {showSingleRoom && meetingRooms.length === 1 && room.todayMeetings.length > 0 && (
-                    <div className="room-timeline">
-                      <div className="timeline-title">今日会议时间轴</div>
-                      <div className="timeline-items">
-                        {room.todayMeetings.map((meeting, index) => (
-                          <div 
-                            key={meeting.id} 
-                            className={classnames('timeline-item', {
-                              'current': meeting.status === 'ongoing'
-                            })}
-                          >
-                            <div className="timeline-time">
-                              {formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}
-                            </div>
-                            <div className="timeline-title">{meeting.title}</div>
-                            <div className={classnames('timeline-status', meeting.status)}>
-                              {meeting.status === 'ongoing' && '进行中'}
-                              {meeting.status === 'upcoming' && '即将开始'}
-                              {meeting.status === 'completed' && '已结束'}
-                            </div>
-                          </div>
-                        ))}
+                  {/* 单一会议室模式：显示今日会议统计 */}
+                  {showSingleRoom && meetingRooms.length === 1 && (
+                    <div className="room-summary">
+                      <div className="summary-item">
+                        <span className="summary-label">今日会议总数:</span>
+                        <span className="summary-value">{room.todayMeetings.length} 个</span>
+                      </div>
+                      <div className="summary-item">
+                        <span className="summary-label">进行中:</span>
+                        <span className="summary-value">
+                          {room.todayMeetings.filter(m => m.status === 'ongoing').length} 个
+                        </span>
+                      </div>
+                      <div className="summary-item">
+                        <span className="summary-label">待开始:</span>
+                        <span className="summary-value">
+                          {room.todayMeetings.filter(m => m.status === 'upcoming').length} 个
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1465,7 +1509,7 @@ function ConfigPanel(props: {
             
             <div className='config-item'>
               <label className='config-label'>
-                {t('meetingRoom.dataStatus')}
+                数据状态
                 <Button 
                   size="small" 
                   onClick={() => onRefreshData(true)}
