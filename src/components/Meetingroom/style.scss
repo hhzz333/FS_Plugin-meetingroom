@@ -1,15 +1,207 @@
 // 会议室签到板样式
 .meeting-room-board {
-  padding: 24px;
+  padding: 20px;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  // 全屏模式样式 - 数据大屏效果
+  &.fullscreen-mode {
+    padding: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    
+    .board-header {
+      margin: 0;
+      padding: 30px 40px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      
+      .board-title {
+        font-size: 3rem;
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+      }
+      
+      .current-date-time {
+        .current-date {
+          font-size: 1.4rem;
+          color: #1e3c72;
+        }
+        
+        .current-time {
+          font-size: 2.8rem;
+          color: #1e3c72;
+          font-weight: 800;
+        }
+      }
+    }
+    
+    .board-content {
+      height: calc(100vh - 140px);
+      gap: 30px;
+      padding: 30px 40px;
+    }
+    
+    .section-title {
+      font-size: 1.8rem;
+      padding: 15px 25px;
+      margin-bottom: 25px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+    }
+    
+    // 单一会议室模式在全屏下的优化
+    &.single-room-mode {
+      .rooms-overview {
+        .single-room-title-section {
+          margin-bottom: 30px;
+          
+          .room-main-title {
+            font-size: 3.5rem;
+            color: white;
+            margin: 0 0 20px 0;
+            text-align: center;
+            font-weight: 700;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+          }
+          
+          .room-status-main {
+            text-align: center;
+            
+            .status-available-main,
+            .status-in-use-main,
+            .status-soon-main {
+              display: inline-flex;
+              align-items: center;
+              gap: 15px;
+              padding: 20px 40px;
+              border-radius: 50px;
+              font-size: 2.2rem;
+              font-weight: 700;
+              box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+              
+              .status-icon {
+                font-size: 2.5rem;
+              }
+              
+              .status-text {
+                color: white;
+              }
+            }
+            
+            .status-available-main {
+              background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.9));
+            }
+            
+            .status-in-use-main {
+              background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9));
+            }
+            
+            .status-soon-main {
+              background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.9));
+            }
+          }
+        }
+        
+        .rooms-grid .room-card {
+          min-height: 500px;
+          padding: 40px;
+          background: rgba(255, 255, 255, 0.95);
+          border: none;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+          
+          .current-meeting {
+            padding: 35px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            
+            .meeting-title {
+              font-size: 2.2rem;
+            }
+            
+            .meeting-time {
+              font-size: 1.6rem;
+            }
+            
+            .meeting-organizer {
+              font-size: 1.3rem;
+            }
+            
+            .meeting-progress {
+              gap: 20px;
+              
+              .progress-text {
+                padding: 18px;
+                font-size: 1.2rem;
+              }
+            }
+          }
+          
+          .next-meeting {
+            padding: 25px;
+            
+            .next-meeting-label {
+              font-size: 1.4rem;
+            }
+            
+            .next-meeting-info .meeting-title {
+              font-size: 1.6rem;
+            }
+          }
+          
+          .room-summary {
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            
+            .summary-item {
+              padding: 14px 0;
+              
+              .summary-label {
+                font-size: 1.1rem;
+              }
+              
+              .summary-value {
+                font-size: 1.2rem;
+                padding: 8px 16px;
+              }
+            }
+          }
+        }
+      }
+      
+      .meetings-list {
+        .meetings-timeline {
+          max-height: calc(100vh - 250px);
+          
+          .meeting-item {
+            padding: 20px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            
+            .meeting-time-range {
+              flex: 0 0 150px;
+              font-size: 1.1rem;
+            }
+            
+            .meeting-title {
+              font-size: 1.3rem;
+            }
+            
+            .meeting-status {
+              flex: 0 0 100px;
+              font-size: 0.9rem;
+            }
+          }
+        }
+      }
+    }
+  }
 
   // 单一会议室模式样式
   &.single-room-mode {
     .board-content {
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
+      gap: 25px;
       
       @media (max-width: 1200px) {
         grid-template-columns: 1fr;
@@ -17,6 +209,54 @@
     }
 
     .rooms-overview {
+      .single-room-title-section {
+        margin-bottom: 25px;
+        text-align: center;
+        
+        .room-main-title {
+          font-size: 2.8rem;
+          color: white;
+          margin: 0 0 15px 0;
+          font-weight: 700;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .room-status-main {
+          .status-available-main,
+          .status-in-use-main,
+          .status-soon-main {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 30px;
+            border-radius: 40px;
+            font-size: 1.8rem;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            
+            .status-icon {
+              font-size: 2rem;
+            }
+            
+            .status-text {
+              color: white;
+            }
+          }
+          
+          .status-available-main {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.85), rgba(5, 150, 105, 0.85));
+          }
+          
+          .status-in-use-main {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.85), rgba(220, 38, 38, 0.85));
+          }
+          
+          .status-soon-main {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.85), rgba(217, 119, 6, 0.85));
+          }
+        }
+      }
+
       .rooms-grid {
         grid-template-columns: 1fr;
         max-height: none;
@@ -26,62 +266,10 @@
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          
-          // 单一会议室状态指示器
-          .room-status-indicator {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 24px;
-            padding: 20px;
-            border-radius: 16px;
-            font-size: 1.4rem;
-            font-weight: 700;
-            
-            &.available {
-              background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.3));
-              color: #10b981;
-              border: 3px solid #10b981;
-              box-shadow: 0 8px 25px rgba(16, 185, 129, 0.2);
-            }
-            
-            &.in-use {
-              background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.3));
-              color: #ef4444;
-              border: 3px solid #ef4444;
-              box-shadow: 0 8px 25px rgba(239, 68, 68, 0.2);
-            }
-            
-            &.soon {
-              background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.3));
-              color: #f59e0b;
-              border: 3px solid #f59e0b;
-              box-shadow: 0 8px 25px rgba(245, 158, 11, 0.2);
-            }
-          }
-
-          .room-header {
-            flex-direction: column;
-            text-align: center;
-            gap: 16px;
-            margin-bottom: 24px;
-            
-            .room-name {
-              font-size: 2.5rem;
-              margin-bottom: 8px;
-              background: linear-gradient(135deg, #667eea, #764ba2);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              background-clip: text;
-            }
-            
-            .room-status {
-              font-size: 1.3rem;
-              padding: 12px 24px;
-              border-radius: 25px;
-              font-weight: 700;
-            }
-          }
+          background: rgba(255, 255, 255, 0.95);
+          border: none;
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+          backdrop-filter: blur(10px);
 
           .current-meeting {
             flex: 1;
@@ -89,40 +277,40 @@
             flex-direction: column;
             justify-content: center;
             text-align: center;
-            padding: 30px;
+            padding: 25px;
             margin-bottom: 20px;
-            border-radius: 20px;
+            border-radius: 16px;
             background: linear-gradient(135deg, #667eea, #764ba2);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
             
             .meeting-title {
-              font-size: 2rem;
-              margin-bottom: 20px;
+              font-size: 1.8rem;
+              margin-bottom: 15px;
               font-weight: 700;
             }
             
             .meeting-time {
-              font-size: 1.5rem;
-              margin-bottom: 16px;
+              font-size: 1.3rem;
+              margin-bottom: 12px;
               opacity: 0.95;
             }
             
             .meeting-organizer {
-              font-size: 1.2rem;
-              margin-bottom: 30px;
+              font-size: 1.1rem;
+              margin-bottom: 20px;
               opacity: 0.9;
             }
             
             .meeting-progress {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 20px;
+              gap: 15px;
               
               .progress-text {
-                padding: 16px;
-                font-size: 1.1rem;
+                padding: 14px;
+                font-size: 1rem;
                 background: rgba(255, 255, 255, 0.2);
-                border-radius: 12px;
+                border-radius: 10px;
                 font-weight: 600;
                 backdrop-filter: blur(10px);
               }
@@ -131,29 +319,29 @@
 
           .next-meeting {
             text-align: center;
-            padding: 25px;
+            padding: 20px;
             margin-bottom: 20px;
             background: linear-gradient(135deg, #f59e0b, #f97316);
             color: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
             
             .next-meeting-label {
-              font-size: 1.3rem;
+              font-size: 1.2rem;
               font-weight: 600;
-              margin-bottom: 16px;
+              margin-bottom: 12px;
               opacity: 0.9;
             }
             
             .next-meeting-info {
               .meeting-title {
-                font-size: 1.5rem;
-                margin-bottom: 12px;
+                font-size: 1.4rem;
+                margin-bottom: 8px;
                 font-weight: 700;
               }
               
               .meeting-time {
-                font-size: 1.2rem;
+                font-size: 1.1rem;
                 opacity: 0.9;
               }
             }
@@ -162,17 +350,16 @@
           // 单一会议室模式：今日会议统计
           .room-summary {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 24px;
-            margin-top: 20px;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
             
             .summary-item {
               display: flex;
               justify-content: space-between;
               align-items: center;
-              padding: 12px 0;
+              padding: 10px 0;
               border-bottom: 1px solid rgba(255, 255, 255, 0.1);
               
               &:last-child {
@@ -180,19 +367,19 @@
               }
               
               .summary-label {
-                font-size: 1rem;
+                font-size: 0.95rem;
                 color: rgba(255, 255, 255, 0.9);
                 font-weight: 500;
               }
               
               .summary-value {
-                font-size: 1.1rem;
+                font-size: 1rem;
                 color: white;
                 font-weight: 700;
                 background: rgba(255, 255, 255, 0.2);
-                padding: 6px 12px;
-                border-radius: 8px;
-                min-width: 60px;
+                padding: 5px 10px;
+                border-radius: 6px;
+                min-width: 50px;
                 text-align: center;
               }
             }
@@ -208,186 +395,14 @@
         
         .meeting-item {
           .meeting-time-range {
-            flex: 0 0 140px;
-            font-size: 1rem;
+            flex: 0 0 130px;
+            font-size: 0.95rem;
           }
           
           .meeting-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
           }
         }
-      }
-    }
-  }
-
-  // 全屏模式样式
-  &.fullscreen-mode {
-    padding: 40px;
-    min-height: 100vh;
-    
-    .board-header {
-      margin-bottom: 40px;
-      padding: 30px;
-      
-      .board-title {
-        font-size: 3.5rem;
-      }
-      
-      .current-date-time {
-        .current-date {
-          font-size: 1.5rem;
-        }
-        
-        .current-time {
-          font-size: 3rem;
-        }
-      }
-      
-      .fullscreen-indicator {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 10px 20px;
-        border-radius: 25px;
-        font-weight: 600;
-        color: #667eea;
-        font-size: 1.1rem;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      }
-    }
-    
-    .board-content {
-      height: calc(100vh - 200px);
-      gap: 40px;
-    }
-    
-    .section-title {
-      font-size: 2rem;
-      padding: 20px 30px;
-      margin-bottom: 30px;
-    }
-    
-    // 单一会议室模式在全屏下的优化
-    &.single-room-mode {
-      .rooms-overview .rooms-grid .room-card {
-        min-height: 500px;
-        padding: 40px;
-        
-        .room-status-indicator {
-          font-size: 1.8rem;
-          padding: 25px;
-          margin-bottom: 30px;
-        }
-        
-        .room-header .room-name {
-          font-size: 3rem;
-        }
-        
-        .current-meeting {
-          padding: 40px;
-          
-          .meeting-title {
-            font-size: 2.5rem;
-          }
-          
-          .meeting-time {
-            font-size: 1.8rem;
-          }
-          
-          .meeting-organizer {
-            font-size: 1.5rem;
-          }
-          
-          .meeting-progress {
-            gap: 25px;
-            
-            .progress-text {
-              padding: 20px;
-              font-size: 1.3rem;
-            }
-          }
-        }
-        
-        .next-meeting {
-          padding: 30px;
-          
-          .next-meeting-label {
-            font-size: 1.5rem;
-          }
-          
-          .next-meeting-info .meeting-title {
-            font-size: 1.8rem;
-          }
-        }
-        
-        .room-summary {
-          padding: 30px;
-          
-          .summary-item {
-            padding: 16px 0;
-            
-            .summary-label {
-              font-size: 1.2rem;
-            }
-            
-            .summary-value {
-              font-size: 1.3rem;
-              padding: 8px 16px;
-            }
-          }
-        }
-      }
-      
-      .meetings-list {
-        .meetings-timeline {
-          max-height: calc(100vh - 250px);
-          
-          .meeting-item {
-            padding: 20px;
-            margin-bottom: 16px;
-            
-            .meeting-time-range {
-              flex: 0 0 160px;
-              font-size: 1.1rem;
-            }
-            
-            .meeting-title {
-              font-size: 1.3rem;
-            }
-            
-            .meeting-status {
-              flex: 0 0 100px;
-              font-size: 0.9rem;
-              padding: 6px 12px;
-            }
-          }
-        }
-      }
-    }
-    
-    // 普通模式在全屏下的优化
-    .rooms-overview .rooms-grid .room-card {
-      padding: 25px;
-      
-      .room-header .room-name {
-        font-size: 1.6rem;
-      }
-      
-      .current-meeting {
-        padding: 20px;
-        
-        .meeting-title {
-          font-size: 1.3rem;
-        }
-      }
-    }
-    
-    .meetings-list .meetings-timeline .meeting-item {
-      padding: 18px;
-      
-      .meeting-title {
-        font-size: 1.2rem;
       }
     }
   }
@@ -397,16 +412,16 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
-    padding: 20px;
+    margin-bottom: 25px;
+    padding: 20px 25px;
     background: rgba(255, 255, 255, 0.95);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(10px);
 
     .board-title {
       margin: 0;
-      font-size: 2.5rem;
+      font-size: 2.2rem;
       font-weight: 700;
       background: linear-gradient(135deg, #667eea, #764ba2);
       -webkit-background-clip: text;
@@ -418,14 +433,14 @@
       text-align: right;
       
       .current-date {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 600;
         color: #333;
         margin-bottom: 4px;
       }
       
       .current-time {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 700;
         color: #667eea;
         font-family: 'Courier New', monospace;
@@ -437,8 +452,8 @@
   .board-content {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    height: calc(100vh - 200px);
+    gap: 25px;
+    height: calc(100vh - 180px);
 
     @media (max-width: 1200px) {
       grid-template-columns: 1fr;
@@ -448,13 +463,13 @@
 
   // 分区标题
   .section-title {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 600;
     color: white;
-    margin: 0 0 20px 0;
+    margin: 0 0 15px 0;
     padding: 12px 20px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
     backdrop-filter: blur(10px);
   }
 
@@ -463,13 +478,13 @@
     .rooms-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      max-height: calc(100vh - 280px);
+      gap: 18px;
+      max-height: calc(100vh - 250px);
       overflow-y: auto;
-      padding-right: 8px;
+      padding-right: 6px;
 
       &::-webkit-scrollbar {
-        width: 6px;
+        width: 5px;
       }
 
       &::-webkit-scrollbar-track {
@@ -485,63 +500,38 @@
 
     .room-card {
       background: rgba(255, 255, 255, 0.95);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
       backdrop-filter: blur(10px);
       transition: all 0.3s ease;
-      border: 2px solid transparent;
+      border: none;
 
       &:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-      }
-
-      // 不同状态的会议室卡片
-      &.available {
-        border-color: #10b981;
-        
-        .room-status {
-          color: #10b981;
-        }
-      }
-
-      &.in-use {
-        border-color: #ef4444;
-        
-        .room-status {
-          color: #ef4444;
-        }
-      }
-
-      &.soon {
-        border-color: #f59e0b;
-        
-        .room-status {
-          color: #f59e0b;
-        }
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
       }
 
       .room-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #f1f5f9;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
 
         .room-name {
           margin: 0;
-          font-size: 1.4rem;
+          font-size: 1.3rem;
           font-weight: 700;
           color: #1e293b;
         }
 
         .room-status {
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           font-weight: 600;
-          padding: 4px 12px;
-          border-radius: 20px;
+          padding: 4px 10px;
+          border-radius: 15px;
           background: rgba(255, 255, 255, 0.8);
         }
       }
@@ -549,8 +539,8 @@
       .current-meeting {
         background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
-        padding: 16px;
-        border-radius: 12px;
+        padding: 15px;
+        border-radius: 10px;
         margin-bottom: 12px;
 
         .meeting-title {
@@ -566,7 +556,7 @@
         }
 
         .meeting-organizer {
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           opacity: 0.9;
           margin-bottom: 12px;
         }
@@ -574,7 +564,7 @@
         .meeting-progress {
           display: flex;
           justify-content: space-between;
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           opacity: 0.9;
 
           .progress-text {
@@ -618,12 +608,12 @@
   // 会议列表区域
   .meetings-list {
     .meetings-timeline {
-      max-height: calc(100vh - 280px);
+      max-height: calc(100vh - 250px);
       overflow-y: auto;
-      padding-right: 8px;
+      padding-right: 6px;
 
       &::-webkit-scrollbar {
-        width: 6px;
+        width: 5px;
       }
 
       &::-webkit-scrollbar-track {
@@ -635,46 +625,44 @@
         background: rgba(255, 255, 255, 0.3);
         border-radius: 3px;
       }
+
+      .no-meetings-message {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1rem;
+        padding: 40px 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+      }
     }
 
     .meeting-item {
       background: rgba(255, 255, 255, 0.95);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
-      gap: 16px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      gap: 15px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       backdrop-filter: blur(10px);
       transition: all 0.3s ease;
-      border-left: 4px solid #94a3b8;
+      border: none;
 
       &:hover {
-        transform: translateX(4px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-      }
-
-      // 不同状态的会议项
-      &.ongoing {
-        border-left-color: #10b981;
-        
-        .meeting-status {
-          color: #10b981;
-        }
+        transform: translateX(3px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
       }
 
       &.upcoming {
-        border-left-color: #f59e0b;
-        
         .meeting-status {
           color: #f59e0b;
         }
       }
 
       &.completed {
-        border-left-color: #64748b;
-        opacity: 0.7;
+        opacity: 0.8;
         
         .meeting-status {
           color: #64748b;
@@ -682,8 +670,8 @@
       }
 
       .meeting-time-range {
-        flex: 0 0 120px;
-        font-size: 0.9rem;
+        flex: 0 0 110px;
+        font-size: 0.85rem;
         font-weight: 600;
         color: #475569;
         font-family: 'Courier New', monospace;
@@ -693,7 +681,7 @@
         flex: 1;
         
         .meeting-title {
-          font-size: 1.1rem;
+          font-size: 1rem;
           font-weight: 600;
           color: #1e293b;
           margin-bottom: 4px;
@@ -701,8 +689,8 @@
 
         .meeting-meta {
           display: flex;
-          gap: 16px;
-          font-size: 0.85rem;
+          gap: 15px;
+          font-size: 0.8rem;
           color: #64748b;
 
           .room-name {
@@ -716,12 +704,12 @@
       }
 
       .meeting-status {
-        flex: 0 0 80px;
-        font-size: 0.8rem;
+        flex: 0 0 70px;
+        font-size: 0.75rem;
         font-weight: 600;
         text-align: center;
         padding: 4px 8px;
-        border-radius: 12px;
+        border-radius: 10px;
         background: rgba(255, 255, 255, 0.8);
       }
     }
@@ -774,6 +762,7 @@
     }
   }
 }
+
 
 // 配置面板样式
 .config-panel {

@@ -813,6 +813,7 @@ interface IMeetingRoomView {
   t: any;
 }
 
+// MeetingRoomView 组件
 function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullscreen, loading, t }: IMeetingRoomView) {
   const { color, showDate, showCurrentMeeting, title, showSingleRoom } = config;
   
@@ -872,24 +873,34 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
     );
   }
 
+  // 处理右侧会议列表数据：只显示已结束和未开始的会议，进行中的不显示
+  const filteredMeetings = meetingRooms.flatMap(room => 
+    room.todayMeetings
+      .filter(meeting => meeting.status !== 'ongoing') // 过滤掉进行中的会议
+      .map(meeting => ({
+        ...meeting,
+        roomName: room.name
+      }))
+  ).sort((a, b) => {
+    // 已结束的排在未开始的后面
+    if (a.status === 'completed' && b.status === 'upcoming') return 1;
+    if (a.status === 'upcoming' && b.status === 'completed') return -1;
+    // 同类型的按时间排序
+    return a.startTime.getTime() - b.startTime.getTime();
+  });
+
   return (
     <div className={classnames("meeting-room-board", {
       "single-room-mode": showSingleRoom && meetingRooms.length === 1,
       "fullscreen-mode": isFullscreen
     })}>
       {/* 标题区域 */}
-      <div className="board-header" style={{ color }}>
+      <div className="board-header">
         <h1 className="board-title">{title}</h1>
         {showDate && (
           <div className="current-date-time">
             <div className="current-date">{formatDate(currentTime)}</div>
             <div className="current-time">{formatTime(currentTime)}</div>
-          </div>
-        )}
-        {/* 全屏状态指示器 */}
-        {isFullscreen && (
-          <div className="fullscreen-indicator">
-            🚀 全屏演示模式
           </div>
         )}
       </div>
@@ -903,19 +914,36 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
         <div className="board-content">
           {/* 左侧：会议室状态概览 */}
           <div className="rooms-overview">
-            <h2 className="section-title">
-              {t('meetingRoom.roomStatus')}
-              {showSingleRoom && meetingRooms.length === 1 && (
-                <span style={{ 
-                  fontSize: '14px', 
-                  color: '#666', 
-                  marginLeft: '12px',
-                  fontWeight: 'normal'
-                }}>
-                  (单一会议室模式)
-                </span>
-              )}
-            </h2>
+            {showSingleRoom && meetingRooms.length === 1 ? (
+              // 单一会议室模式：显示会议室名称作为标题
+              <div className="single-room-title-section">
+                <h2 className="room-main-title">{meetingRooms[0].name}</h2>
+                <div className="room-status-main">
+                  {meetingRooms[0].status === 'available' && (
+                    <div className="status-available-main">
+                      <span className="status-icon">🟢</span>
+                      <span className="status-text">{t('meetingRoom.available')}</span>
+                    </div>
+                  )}
+                  {meetingRooms[0].status === 'in-use' && (
+                    <div className="status-in-use-main">
+                      <span className="status-icon">🔴</span>
+                      <span className="status-text">{t('meetingRoom.inUse')}</span>
+                    </div>
+                  )}
+                  {meetingRooms[0].status === 'soon' && (
+                    <div className="status-soon-main">
+                      <span className="status-icon">🟡</span>
+                      <span className="status-text">{t('meetingRoom.soon')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // 多会议室模式：显示会议室状态标题
+              <h2 className="section-title">{t('meetingRoom.roomStatus')}</h2>
+            )}
+            
             <div className="rooms-grid">
               {meetingRooms.map(room => (
                 <div 
@@ -926,27 +954,16 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
                     'soon': room.status === 'soon'
                   })}
                 >
-                  {/* 单一会议室模式的状态指示器 */}
-                  {showSingleRoom && meetingRooms.length === 1 && (
-                    <div className={classnames('room-status-indicator', room.status)}>
-                      {room.status === 'available' && '🟢 ' + t('meetingRoom.available')}
-                      {room.status === 'in-use' && '🔴 ' + t('meetingRoom.inUse')}
-                      {room.status === 'soon' && '🟡 ' + t('meetingRoom.soon')}
-                    </div>
-                  )}
-                  
-                  <div className={classnames('room-header', {
-                    'single-room-header': showSingleRoom && meetingRooms.length === 1
-                  })}>
-                    <h3 className="room-name">{room.name}</h3>
-                    {(!showSingleRoom || meetingRooms.length > 1) && (
+                  {(!showSingleRoom || meetingRooms.length > 1) && (
+                    <div className="room-header">
+                      <h3 className="room-name">{room.name}</h3>
                       <div className="room-status">
                         {room.status === 'available' && '🟢 ' + t('meetingRoom.available')}
                         {room.status === 'in-use' && '🔴 ' + t('meetingRoom.inUse')}
                         {room.status === 'soon' && '🟡 ' + t('meetingRoom.soon')}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   
                   {showCurrentMeeting && room.currentMeeting && (
                     <div className={classnames('current-meeting', {
@@ -1018,39 +1035,36 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
           <div className="meetings-list">
             <h2 className="section-title">{t('meetingRoom.todaySchedule')}</h2>
             <div className="meetings-timeline">
-              {meetingRooms.flatMap(room => 
-                room.todayMeetings.map(meeting => ({
-                  ...meeting,
-                  roomName: room.name
-                }))
-              )
-              .sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
-              .map((meeting, index) => (
-                <div 
-                  key={`${meeting.id}-${index}`} 
-                  className={classnames('meeting-item', {
-                    'ongoing': meeting.status === 'ongoing',
-                    'upcoming': meeting.status === 'upcoming',
-                    'completed': meeting.status === 'completed'
-                  })}
-                >
-                  <div className="meeting-time-range">
-                    {formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}
-                  </div>
-                  <div className="meeting-details">
-                    <div className="meeting-title">{meeting.title}</div>
-                    <div className="meeting-meta">
-                      <span className="room-name">{meeting.roomName}</span>
-                      <span className="organizer">{meeting.organizer}</span>
+              {filteredMeetings.length > 0 ? (
+                filteredMeetings.map((meeting, index) => (
+                  <div 
+                    key={`${meeting.id}-${index}`} 
+                    className={classnames('meeting-item', {
+                      'upcoming': meeting.status === 'upcoming',
+                      'completed': meeting.status === 'completed'
+                    })}
+                  >
+                    <div className="meeting-time-range">
+                      {formatTime(meeting.startTime)} - {formatTime(meeting.endTime)}
+                    </div>
+                    <div className="meeting-details">
+                      <div className="meeting-title">{meeting.title}</div>
+                      <div className="meeting-meta">
+                        <span className="room-name">{meeting.roomName}</span>
+                        <span className="organizer">{meeting.organizer}</span>
+                      </div>
+                    </div>
+                    <div className="meeting-status">
+                      {meeting.status === 'upcoming' && '⏰ ' + t('meetingRoom.upcoming')}
+                      {meeting.status === 'completed' && '✅ ' + t('meetingRoom.completed')}
                     </div>
                   </div>
-                  <div className="meeting-status">
-                    {meeting.status === 'ongoing' && '🟢 ' + t('meetingRoom.ongoing')}
-                    {meeting.status === 'upcoming' && '⏰ ' + t('meetingRoom.upcoming')}
-                    {meeting.status === 'completed' && '✅ ' + t('meetingRoom.completed')}
-                  </div>
+                ))
+              ) : (
+                <div className="no-meetings-message">
+                  今日暂无其他会议安排
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
