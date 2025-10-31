@@ -106,7 +106,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     isConfigRef.current = isConfig;
   }, [config, isConfig]);
 
-  // 监听全屏状态变化 - 修复版本
+  // 监听全屏状态变化
   useEffect(() => {
     const checkFullscreen = () => {
       try {
@@ -121,7 +121,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     // 初始检查
     checkFullscreen();
 
-    // 使用轮询方式检测全屏状态变化（最可靠的方式）
+    // 使用轮询方式检测全屏状态变化
     const interval = setInterval(checkFullscreen, 2000);
 
     return () => {
@@ -763,9 +763,14 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       style={{
         backgroundColor: props.bgColor,
         paddingRight: isConfig ? '400px' : '0',
-        minHeight: '100vh',
-        position: 'relative',
-        transition: 'padding-right 0.3s ease'
+        // 添加全屏模式下的样式
+        ...(isFullscreen && {
+          padding: '0',
+          margin: '0',
+          width: '100vw',
+          height: '100vh',
+          overflow: 'hidden'
+        })
       }} 
       className={classnames({
         'main-config': isConfig, 
@@ -954,6 +959,22 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
                     'soon': room.status === 'soon'
                   })}
                 >
+                  {/* 新增：大号状态文字（空闲时显示） */}
+                  <div className="room-status-large">
+                    {room.status === 'available' && '🟢 空闲'}
+                    {room.status === 'in-use' && '🔴 使用中'}
+                    {room.status === 'soon' && '🟡 即将开始'}
+                  </div>
+                  
+                  {/* 新增：正常状态显示（有会议时显示） */}
+                  <div className="room-status-normal">
+                    <div className="status-text">
+                      {room.status === 'available' && '🟢 空闲'}
+                      {room.status === 'in-use' && '🔴 使用中'}
+                      {room.status === 'soon' && '🟡 即将开始'}
+                    </div>
+                  </div>
+                  
                   {(!showSingleRoom || meetingRooms.length > 1) && (
                     <div className="room-header">
                       <h3 className="room-name">{room.name}</h3>
@@ -1073,7 +1094,7 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
   );
 }
 
-// ConfigPanel 组件
+// ConfigPanel 组件（保持不变）
 function ConfigPanel(props: {
   config: IMeetingRoomConfig;
   setConfig: React.Dispatch<React.SetStateAction<IMeetingRoomConfig>>;
