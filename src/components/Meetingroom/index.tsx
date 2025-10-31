@@ -31,7 +31,6 @@ interface IMeetingRoomConfig {
   showDate: boolean;
   showCurrentMeeting: boolean;
   title: string;
-  // 新增：单一会议室选择
   showSingleRoom: boolean;
   selectedRoomId: string;
 }
@@ -80,7 +79,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     showDate: true,
     showCurrentMeeting: true,
     title: t('meetingRoom.boardTitle', '会议室状态看板'),
-    // 新增默认值
     showSingleRoom: false,
     selectedRoomId: '',
   };
@@ -92,7 +90,8 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   const [meetingRooms, setMeetingRooms] = useState<IMeetingRoom[]>([]);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
-  const [allRooms, setAllRooms] = useState<IMeetingRoom[]>([]); // 存储所有会议室用于选择
+  const [allRooms, setAllRooms] = useState<IMeetingRoom[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const isCreate = dashboard.state === DashboardState.Create;
   const isConfig = dashboard.state === DashboardState.Config || isCreate;
@@ -108,6 +107,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   const updateConfig = useCallback((res: IConfig) => {
     if (timer.current) {
       clearTimeout(timer.current);
+      timer.current = null;
     }
     
     try {
@@ -137,15 +137,20 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         };
         
         setConfig(validatedConfig);
+        setDataLoaded(false);
+        
         timer.current = window.setTimeout(() => {
           dashboard.setRendered();
+          timer.current = null;
         }, 3000);
       } else {
         setConfig(defaultConfig);
+        setDataLoaded(false);
       }
     } catch (error) {
       console.error('配置解析失败:', error);
       setConfig(defaultConfig);
+      setDataLoaded(false);
     }
   }, [defaultConfig]);
 
@@ -295,16 +300,23 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
   };
 
   /** 从两个表加载会议室和会议数据 */
-  const loadMeetingData = useCallback(async () => {
+  const loadMeetingData = useCallback(async (showToast: boolean = false) => {
+    // 在配置模式下不加载数据
+    if (isConfig && !showToast) {
+      console.log('配置模式下跳过数据加载');
+      return;
+    }
+
     try {
       if (!config.roomTableId || !config.bookingTableId || 
           !config.roomNameFieldId || !config.bookingRoomFieldId || 
           !config.startTimeFieldId || !config.endTimeFieldId) {
+        console.log('配置不完整，跳过数据加载');
         return;
       }
       
       setLoading(true);
-      console.log('开始加载会议数据...');
+      console.log('开始加载会议数据...', new Date().toISOString());
       
       // 1. 从会议室表加载所有会议室
       const roomTable = await bitable.base.getTableById(config.roomTableId);
@@ -356,7 +368,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
       
       console.log(`成功加载 ${rooms.length} 个会议室`);
-      console.log('会议室名称列表:', Array.from(roomNameMap.keys()));
       
       // 2. 从预定表加载今日预定
       const bookingTable = await bitable.base.getTableById(config.bookingTableId);
@@ -382,11 +393,9 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         try {
           // 获取关联的会议室 - 通过文本内容匹配
           const bookingRoomCell = await bookingTable.getCellValue(config.bookingRoomFieldId, record.id);
-          console.log(`预定记录 ${record.id} 的会议室字段:`, bookingRoomCell);
           
           // 从预定表的会议室字段提取文本内容
           const bookingRoomName = extractTextFromCell(bookingRoomCell);
-          console.log(`提取的会议室名称: "${bookingRoomName}"`);
           
           if (!bookingRoomName) {
             console.log(`预定记录 ${record.id} 没有会议室名称，跳过`);
@@ -398,7 +407,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           
           if (!matchedRoom) {
             console.log(`预定记录 ${record.id} 的会议室 "${bookingRoomName}" 未匹配到任何会议室`);
-            console.log('可用的会议室:', Array.from(roomNameMap.keys()));
             continue;
           }
           
@@ -417,8 +425,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           const endTimeCell = await bookingTable.getCellValue(config.endTimeFieldId, record.id);
           const endTime = extractDateTimeFromCell(endTimeCell);
           
-          console.log(`解析的时间: 开始=${startTime}, 结束=${endTime}`);
-          
           // 获取组织者
           let organizer = '未知';
           if (config.organizerFieldId) {
@@ -432,9 +438,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            
-            console.log(`今天范围: ${today} 到 ${tomorrow}`);
-            console.log(`会议时间: ${startTime}`);
             
             if (startTime >= today && startTime < tomorrow) {
               const meeting: IMeeting = {
@@ -451,12 +454,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
               allMeetings.push(meeting);
               matchedRoom.todayMeetings.push(meeting);
               matchedCount++;
-              console.log(`成功添加会议: ${meetingTitle} 在 ${matchedRoom.name}`);
-            } else {
-              console.log(`会议 ${meetingTitle} 不在今天范围内`);
             }
-          } else {
-            console.log(`时间解析失败: 开始时间=${startTime}, 结束时间=${endTime}`);
           }
         } catch (cellError) {
           console.warn('读取预定记录失败:', cellError, record.id);
@@ -477,7 +475,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         if (currentMeeting) {
           room.currentMeeting = currentMeeting;
           room.status = 'in-use';
-          console.log(`会议室 ${room.name} 正在使用中`);
         } else {
           // 检查是否有即将开始的会议（15分钟内）
           const nextMeeting = room.todayMeetings.find(meeting => 
@@ -485,7 +482,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
             (meeting.startTime.getTime() - currentTime.getTime()) <= 15 * 60 * 1000
           );
           room.status = nextMeeting ? 'soon' : 'available';
-          console.log(`会议室 ${room.name} 状态: ${room.status}`);
         }
         
         return room;
@@ -507,7 +503,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         
         if (selectedRoom) {
           finalRooms = [selectedRoom];
-          console.log(`只显示会议室: ${selectedRoom.name}`);
         } else {
           console.log('未找到选定的会议室，显示所有会议室');
           finalRooms = updatedRooms;
@@ -515,20 +510,28 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
       
       setMeetingRooms(finalRooms);
+      setDataLoaded(true);
       
-      if (updatedRooms.length === 0) {
-        Toast.warning(t('meetingRoom.noRoomsData'));
-      } else if (allMeetings.length === 0) {
-        Toast.warning('找到会议室但未匹配到今日预定');
-        console.log('可能的问题:');
-        console.log('- 会议室名称不匹配（注意空格和大小写）');
-        console.log('- 时间字段格式问题');
-        console.log('- 没有今日预定数据');
+      // 只在配置界面刷新数据时显示提示，或者有错误时才显示
+      if (showToast) {
+        if (updatedRooms.length === 0) {
+          Toast.warning(t('meetingRoom.noRoomsData'));
+        } else if (allMeetings.length === 0) {
+          // 找到会议室但没有今日预定，显示信息性提示而不是警告
+          Toast.info('找到会议室但今日暂无预定');
+        } else {
+          Toast.success(`加载成功: ${finalRooms.length}个会议室, ${allMeetings.length}个预定`);
+        }
       } else {
-        Toast.success(`加载成功: ${finalRooms.length}个会议室, ${allMeetings.length}个预定`);
+        // 非配置界面，只在有错误时显示提示
+        if (updatedRooms.length === 0) {
+          Toast.warning(t('meetingRoom.noRoomsData'));
+        }
+        // 没有预定记录是正常情况，不显示提示
       }
     } catch (error) {
       console.error('加载会议数据失败:', error);
+      // 错误提示在任何模式下都显示
       Toast.error(t('meetingRoom.loadDataFailed'));
     } finally {
       setLoading(false);
@@ -542,15 +545,16 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.endTimeFieldId,
     config.showSingleRoom, 
     config.selectedRoomId,
+    config.roomViewId,
+    config.bookingViewId,
     currentTime,
-    t
+    t,
+    isConfig
   ]);
 
   // 辅助函数：从单元格提取文本
   const extractTextFromCell = (cellValue: any): string => {
     if (!cellValue) return '';
-    
-    console.log('提取文本，原始数据:', cellValue);
     
     // 如果是字符串，直接返回
     if (typeof cellValue === 'string') {
@@ -638,28 +642,13 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     }
   }, [config.bookingTableId, isConfig, loadBookingFields]);
 
-  // 当配置变化时加载会议数据
+  // 主要的数据加载逻辑
   useEffect(() => {
-    if (config.roomTableId && config.bookingTableId && 
-        config.roomNameFieldId && config.bookingRoomFieldId && 
-        config.startTimeFieldId && config.endTimeFieldId) {
-      loadMeetingData();
-    }
-  }, [
-    config.roomTableId, config.bookingTableId,
-    config.roomNameFieldId, config.bookingRoomFieldId,
-    config.startTimeFieldId, config.endTimeFieldId,
-    config.showSingleRoom, config.selectedRoomId,
-    isConfig, loadMeetingData
-  ]);
-
-  // 定期刷新数据 - 修复版本
-  useEffect(() => {
-    // 在配置模式下不启用定时刷新
+    // 在配置模式下不加载数据
     if (isConfig) {
       return;
     }
-    
+
     // 检查必要的配置是否完整
     const hasRequiredConfig = 
       config.roomTableId && 
@@ -670,17 +659,53 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       config.endTimeFieldId;
     
     if (!hasRequiredConfig) {
+      console.log('配置不完整，跳过数据加载');
+      return;
+    }
+
+    console.log('触发数据加载');
+    loadMeetingData(false); // 非配置界面不显示成功提示
+  }, [
+    config.roomTableId,
+    config.bookingTableId,
+    config.roomNameFieldId,
+    config.bookingRoomFieldId,
+    config.startTimeFieldId,
+    config.endTimeFieldId,
+    config.showSingleRoom,
+    config.selectedRoomId,
+    isConfig,
+    loadMeetingData
+  ]);
+
+  // 定期刷新数据 - 只在非配置模式下运行
+  useEffect(() => {
+    if (isConfig) {
+      console.log('配置模式下不启动定时刷新');
+      return;
+    }
+
+    // 检查必要的配置是否完整且数据已加载
+    const hasRequiredConfig = 
+      config.roomTableId && 
+      config.bookingTableId && 
+      config.roomNameFieldId && 
+      config.bookingRoomFieldId && 
+      config.startTimeFieldId && 
+      config.endTimeFieldId;
+    
+    if (!hasRequiredConfig || !dataLoaded) {
+      console.log('配置不完整或数据未加载，不启动定时刷新');
       return;
     }
     
     console.log('启动数据定时刷新，间隔30秒');
     
     const interval = window.setInterval(() => {
-      console.log('定时刷新会议数据...');
-      loadMeetingData();
-    }, 30000); // 每30秒刷新一次
+      console.log('定时刷新会议数据...', new Date().toISOString());
+      loadMeetingData(false); // 定时刷新不显示提示
+    }, 30000);
     
-    // 清理函数
     return () => {
       console.log('清理数据刷新定时器');
       clearInterval(interval);
@@ -693,6 +718,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.bookingRoomFieldId,
     config.startTimeFieldId,
     config.endTimeFieldId,
+    dataLoaded,
     loadMeetingData
   ]);
 
@@ -998,7 +1024,7 @@ function ConfigPanel(props: {
   bookingFields: IFieldInfo[];
   allRooms: IMeetingRoom[];
   loading: boolean;
-  onRefreshData: () => void;
+  onRefreshData: (showToast: boolean) => void;
   t: any;
 }) {
   const { config, setConfig, tables, roomFields, bookingFields, allRooms, loading, onRefreshData, t } = props;
@@ -1051,7 +1077,7 @@ function ConfigPanel(props: {
       roomViewId: '',
       roomNameFieldId: '',
       roomIdFieldId: '',
-      selectedRoomId: '', // 清空选择的会议室
+      selectedRoomId: '',
     });
   };
 
@@ -1439,10 +1465,10 @@ function ConfigPanel(props: {
             
             <div className='config-item'>
               <label className='config-label'>
-                数据状态
+                {t('meetingRoom.dataStatus')}
                 <Button 
                   size="small" 
-                  onClick={onRefreshData}
+                  onClick={() => onRefreshData(true)}
                   disabled={!config.roomTableId || !config.bookingTableId || 
                            !config.roomNameFieldId || !config.bookingRoomFieldId || 
                            !config.startTimeFieldId || !config.endTimeFieldId}
