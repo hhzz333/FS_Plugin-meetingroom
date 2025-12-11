@@ -28,10 +28,12 @@ interface IMeetingRoomConfig {
   startTimeFieldId: string;
   endTimeFieldId: string;
   organizerFieldId: string;
+  bookingStatusFieldId: string; // 新增：预定状态字段
+  bookingStatusValue: string; // 新增：预定状态值
   showDate: boolean;
   showCurrentMeeting: boolean;
   title: string;
-  showSingleRoom: boolean;
+  isDefaultMode: boolean;
   selectedRoomId: string;
 }
 
@@ -55,6 +57,7 @@ interface IMeeting {
   roomName: string;
   roomId: string;
   status: 'ongoing' | 'upcoming' | 'completed';
+  displayStatus?: 'upcoming' | 'pending' | 'completed'; // 添加显示状态字段
 }
 
 const DEFAULT_COLOR = 'var(--ccm-chart-N700)';
@@ -76,10 +79,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     startTimeFieldId: '',
     endTimeFieldId: '',
     organizerFieldId: '',
+    bookingStatusFieldId: '', // 新增：预定状态字段
+    bookingStatusValue: '已预订', // 新增：默认预定状态值
     showDate: true,
     showCurrentMeeting: true,
     title: t('meetingRoom.boardTitle', '会议室状态看板'),
-    showSingleRoom: false,
+    isDefaultMode: true,
     selectedRoomId: '',
   };
 
@@ -106,13 +111,17 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     isConfigRef.current = isConfig;
   }, [config, isConfig]);
 
-  // 监听全屏状态变化
+  // 监听全屏状态变化 - 使用优化的轮询方案
   useEffect(() => {
     const checkFullscreen = () => {
       try {
         const fullscreenState = dashboard.state === DashboardState.FullScreen;
-        setIsFullscreen(fullscreenState);
-        console.log('全屏状态:', fullscreenState, '当前状态:', dashboard.state);
+        
+        // 只在状态变化时更新，避免不必要的重渲染
+        if (fullscreenState !== isFullscreen) {
+          setIsFullscreen(fullscreenState);
+          console.log('全屏状态变化:', fullscreenState);
+        }
       } catch (error) {
         console.error('检查全屏状态失败:', error);
       }
@@ -122,12 +131,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     checkFullscreen();
 
     // 使用轮询方式检测全屏状态变化
-    const interval = setInterval(checkFullscreen, 2000);
+    const interval = setInterval(checkFullscreen, 500); // 提高检测频率
 
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [isFullscreen]);
 
   useEffect(() => {
     if (isCreate) {
@@ -162,10 +171,12 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           startTimeFieldId: typeof customConfig.startTimeFieldId === 'string' ? customConfig.startTimeFieldId : defaultConfig.startTimeFieldId,
           endTimeFieldId: typeof customConfig.endTimeFieldId === 'string' ? customConfig.endTimeFieldId : defaultConfig.endTimeFieldId,
           organizerFieldId: typeof customConfig.organizerFieldId === 'string' ? customConfig.organizerFieldId : defaultConfig.organizerFieldId,
+          bookingStatusFieldId: typeof customConfig.bookingStatusFieldId === 'string' ? customConfig.bookingStatusFieldId : defaultConfig.bookingStatusFieldId,
+          bookingStatusValue: typeof customConfig.bookingStatusValue === 'string' ? customConfig.bookingStatusValue : defaultConfig.bookingStatusValue,
           showDate: typeof customConfig.showDate === 'boolean' ? customConfig.showDate : defaultConfig.showDate,
           showCurrentMeeting: typeof customConfig.showCurrentMeeting === 'boolean' ? customConfig.showCurrentMeeting : defaultConfig.showCurrentMeeting,
           title: typeof customConfig.title === 'string' ? customConfig.title : defaultConfig.title,
-          showSingleRoom: typeof customConfig.showSingleRoom === 'boolean' ? customConfig.showSingleRoom : defaultConfig.showSingleRoom,
+          isDefaultMode: typeof customConfig.showSingleRoom === 'boolean' ? customConfig.showSingleRoom : true,
           selectedRoomId: typeof customConfig.selectedRoomId === 'string' ? customConfig.selectedRoomId : defaultConfig.selectedRoomId,
         };
         
@@ -332,13 +343,23 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     return typeMap[type] || `未知类型(${type})`;
   };
 
+  // 辅助函数：获取会议状态（使用实时时间）
+  const getMeetingStatus = (startTime: Date, endTime: Date): 'ongoing' | 'upcoming' | 'completed' => {
+    const now = new Date(); // 使用实时时间而不是缓存的 currentTime
+    if (now >= startTime && now <= endTime) {
+      return 'ongoing';
+    } else if (now < startTime) {
+      return 'upcoming';
+    } else {
+      return 'completed';
+    }
+  };
+
   /** 从两个表加载会议室和会议数据 */
   const loadMeetingData = useCallback(async (showToast: boolean = false) => {
-    // 使用 ref 来获取最新的配置状态，避免闭包问题
     const currentIsConfig = isConfigRef.current;
     const currentConfig = configRef.current;
 
-    // 在配置模式下不加载数据
     if (currentIsConfig && !showToast) {
       console.log('配置模式下跳过数据加载');
       return;
@@ -352,7 +373,11 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         return;
       }
       
-      setLoading(true);
+      // 只有用户手动刷新或首次加载时才显示 loading
+      if (showToast || !dataLoaded) {
+        setLoading(true);
+      }
+      
       console.log('开始加载会议数据...', new Date().toISOString());
       
       // 1. 从会议室表加载所有会议室
@@ -370,7 +395,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         roomRecords = await roomTable.getRecordList();
       }
       
-      // 修复：正确获取记录数量
       const roomRecordsLength = Array.isArray(roomRecords) ? roomRecords.length : 0;
       console.log(`找到 ${roomRecordsLength} 个会议室记录`);
       
@@ -379,7 +403,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       
       for (const record of roomRecords) {
         try {
-          // 获取会议室名称
           const roomNameCell = await roomTable.getCellValue(currentConfig.roomNameFieldId, record.id);
           const roomName = extractTextFromCell(roomNameCell);
           
@@ -422,19 +445,28 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
         bookingRecords = await bookingTable.getRecordList();
       }
       
-      // 修复：正确获取记录数量
       const bookingRecordsLength = Array.isArray(bookingRecords) ? bookingRecords.length : 0;
       console.log(`找到 ${bookingRecordsLength} 个预定记录`);
       
       const allMeetings: IMeeting[] = [];
       let matchedCount = 0;
+      let statusFilteredCount = 0;
       
       for (const record of bookingRecords) {
         try {
-          // 获取关联的会议室 - 通过文本内容匹配
-          const bookingRoomCell = await bookingTable.getCellValue(currentConfig.bookingRoomFieldId, record.id);
+          // 检查预定状态筛选条件
+          if (currentConfig.bookingStatusFieldId) {
+            const bookingStatusCell = await bookingTable.getCellValue(currentConfig.bookingStatusFieldId, record.id);
+            const bookingStatus = extractTextFromCell(bookingStatusCell);
+            
+            // 如果配置了预定状态筛选，且当前记录的预定状态不等于配置的值，则跳过
+            if (bookingStatus !== currentConfig.bookingStatusValue) {
+              statusFilteredCount++;
+              continue;
+            }
+          }
           
-          // 从预定表的会议室字段提取文本内容
+          const bookingRoomCell = await bookingTable.getCellValue(currentConfig.bookingRoomFieldId, record.id);
           const bookingRoomName = extractTextFromCell(bookingRoomCell);
           
           if (!bookingRoomName) {
@@ -442,7 +474,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
             continue;
           }
           
-          // 通过名称匹配会议室
           const matchedRoom = roomNameMap.get(bookingRoomName);
           
           if (!matchedRoom) {
@@ -452,20 +483,16 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           
           console.log(`成功匹配会议室: ${bookingRoomName} -> ${matchedRoom.name}`);
           
-          // 获取会议标题
           const meetingTitleCell = currentConfig.meetingTitleFieldId ? 
             await bookingTable.getCellValue(currentConfig.meetingTitleFieldId, record.id) : null;
           const meetingTitle = extractTextFromCell(meetingTitleCell) || '未命名会议';
           
-          // 获取开始时间
           const startTimeCell = await bookingTable.getCellValue(currentConfig.startTimeFieldId, record.id);
           const startTime = extractDateTimeFromCell(startTimeCell);
           
-          // 获取结束时间
           const endTimeCell = await bookingTable.getCellValue(currentConfig.endTimeFieldId, record.id);
           const endTime = extractDateTimeFromCell(endTimeCell);
           
-          // 获取组织者
           let organizer = '未知';
           if (currentConfig.organizerFieldId) {
             const organizerCell = await bookingTable.getCellValue(currentConfig.organizerFieldId, record.id);
@@ -473,13 +500,13 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
           }
           
           if (startTime && endTime) {
-            // 只处理今天的会议
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
             
             if (startTime >= today && startTime < tomorrow) {
+              // 使用实时时间计算会议状态
               const meeting: IMeeting = {
                 id: record.id,
                 title: meetingTitle,
@@ -488,7 +515,7 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
                 organizer,
                 roomName: matchedRoom.name,
                 roomId: matchedRoom.roomId,
-                status: getMeetingStatus(startTime, endTime, currentTime)
+                status: getMeetingStatus(startTime, endTime) // 移除 currentTime 参数
               };
               
               allMeetings.push(meeting);
@@ -502,103 +529,113 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
       
       console.log(`成功匹配 ${matchedCount} 个预定到会议室`);
+      if (currentConfig.bookingStatusFieldId) {
+        console.log(`根据预定状态筛选排除了 ${statusFilteredCount} 条记录`);
+      }
       
-      // 3. 更新每个会议室的当前会议和状态
+      // 3. 更新每个会议室的当前会议和状态（使用实时时间）
       const updatedRooms = rooms.map(room => {
         room.todayMeetings.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
         
-        // 查找当前正在进行的会议
-        const currentMeeting = room.todayMeetings.find(meeting => 
-          meeting.status === 'ongoing'
-        );
+        // 使用实时时间判断当前会议
+        const now = new Date();
+        const currentMeeting = room.todayMeetings.find(meeting => {
+          const status = getMeetingStatus(meeting.startTime, meeting.endTime);
+          return status === 'ongoing';
+        });
         
         if (currentMeeting) {
           room.currentMeeting = currentMeeting;
           room.status = 'in-use';
         } else {
           // 检查是否有即将开始的会议（15分钟内）
-          const nextMeeting = room.todayMeetings.find(meeting => 
-            meeting.status === 'upcoming' && 
-            (meeting.startTime.getTime() - currentTime.getTime()) <= 15 * 60 * 1000
-          );
-          room.status = nextMeeting ? 'soon' : 'available';
+          const soonMeeting = room.todayMeetings.find(meeting => {
+            const timeUntilStart = meeting.startTime.getTime() - now.getTime();
+            return meeting.status === 'upcoming' && timeUntilStart <= 15 * 60 * 1000; // 15分钟内
+          });
+          
+          room.currentMeeting = undefined;
+          room.status = soonMeeting ? 'soon' : 'available';
         }
         
         return room;
       });
 
-      // 保存所有会议室用于选择
       setAllRooms(updatedRooms);
       
-      // 4. 如果启用了单一会议室显示，过滤数据
+      // 4. 单一会议室显示逻辑
       let finalRooms = updatedRooms;
 
-      if (currentConfig.showSingleRoom && currentConfig.selectedRoomId) {
+      if (currentConfig.selectedRoomId) {
         console.log('启用单一会议室显示，选择ID:', currentConfig.selectedRoomId);
         
-        // 查找选定的会议室
         const selectedRoom = updatedRooms.find(room => 
           room.id === currentConfig.selectedRoomId || room.roomId === currentConfig.selectedRoomId
         );
         
         if (selectedRoom) {
           finalRooms = [selectedRoom];
-        } else {
-          console.log('未找到选定的会议室，显示所有会议室');
-          finalRooms = updatedRooms;
+        } else if (updatedRooms.length > 0) {
+          finalRooms = [updatedRooms[0]];
         }
+      } else if (updatedRooms.length > 0) {
+        finalRooms = [updatedRooms[0]];
       }
       
       setMeetingRooms(finalRooms);
       setDataLoaded(true);
       
-      // 只在配置界面刷新数据时显示提示，或者有错误时才显示
       if (showToast) {
         if (updatedRooms.length === 0) {
           Toast.warning(t('meetingRoom.noRoomsData'));
         } else if (allMeetings.length === 0) {
-          // 找到会议室但没有今日预定，显示信息性提示而不是警告
-          Toast.info('找到会议室但今日暂无预定');
+          let message = '找到会议室但今日暂无预定';
+          if (currentConfig.bookingStatusFieldId) {
+            message += ` (已筛选预定状态为"${currentConfig.bookingStatusValue}")`;
+          }
+          Toast.info(message);
         } else {
-          Toast.success(`加载成功: ${finalRooms.length}个会议室, ${allMeetings.length}个预定`);
+          let message = `加载成功: ${finalRooms.length}个会议室, ${allMeetings.length}个预定`;
+          if (currentConfig.bookingStatusFieldId) {
+            message += ` (预定状态: ${currentConfig.bookingStatusValue})`;
+          }
+          Toast.success(message);
         }
       } else {
-        // 非配置界面，只在有错误时显示提示
         if (updatedRooms.length === 0) {
           Toast.warning(t('meetingRoom.noRoomsData'));
         }
-        // 没有预定记录是正常情况，不显示提示
       }
     } catch (error) {
       console.error('加载会议数据失败:', error);
-      // 错误提示在任何模式下都显示
-      Toast.error(t('meetingRoom.loadDataFailed'));
+      if (showToast) {
+        Toast.error(t('meetingRoom.loadDataFailed'));
+      }
     } finally {
-      setLoading(false);
+      // 只有用户手动刷新或首次加载时才隐藏 loading
+      if (showToast || !dataLoaded) {
+        setLoading(false);
+      }
     }
-  }, [currentTime, t]);
+  }, [t, dataLoaded]); // 添加 dataLoaded 依赖
 
   // 辅助函数：从单元格提取文本
   const extractTextFromCell = (cellValue: any): string => {
     if (!cellValue) return '';
     
-    // 如果是字符串，直接返回
     if (typeof cellValue === 'string') {
       return cellValue.trim();
     }
     
-    // 如果是对象且有text属性
     if (cellValue && typeof cellValue === 'object') {
       if (cellValue.text) {
         return String(cellValue.text).trim();
       }
       
-      // 处理单选字段
       if (cellValue.name) {
         return String(cellValue.name).trim();
       }
       
-      // 处理关联字段
       if (Array.isArray(cellValue) && cellValue.length > 0) {
         const firstItem = cellValue[0];
         if (firstItem && firstItem.text) {
@@ -611,7 +648,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       }
     }
     
-    // 其他情况转为字符串
     return String(cellValue).trim();
   };
 
@@ -634,17 +670,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       console.warn('日期解析失败:', error);
     }
     return null;
-  };
-
-  // 辅助函数：获取会议状态
-  const getMeetingStatus = (startTime: Date, endTime: Date, currentTime: Date): 'ongoing' | 'upcoming' | 'completed' => {
-    if (currentTime >= startTime && currentTime <= endTime) {
-      return 'ongoing';
-    } else if (currentTime < startTime) {
-      return 'upcoming';
-    } else {
-      return 'completed';
-    }
   };
 
   // 初始化加载表格列表
@@ -670,15 +695,13 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
 
   // 主要的数据加载逻辑
   useEffect(() => {
-    console.log('主要数据加载 useEffect 触发', { isConfig, dataLoaded });
+    console.log('主要数据加载 useEffect 触发', { isConfig });
     
-    // 在配置模式下不加载数据
     if (isConfig) {
       console.log('配置模式下跳过数据加载');
       return;
     }
 
-    // 检查必要的配置是否完整
     const hasRequiredConfig = 
       config.roomTableId && 
       config.bookingTableId && 
@@ -692,14 +715,8 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       return;
     }
 
-    // 如果数据已经加载过，避免重复加载
-    if (dataLoaded) {
-      console.log('数据已加载，跳过重复加载');
-      return;
-    }
-
     console.log('触发数据加载');
-    loadMeetingData(false); // 非配置界面不显示成功提示
+    loadMeetingData(false);
   }, [
     isConfig,
     config.roomTableId,
@@ -708,20 +725,20 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.bookingRoomFieldId,
     config.startTimeFieldId,
     config.endTimeFieldId,
-    dataLoaded,
+    config.bookingStatusFieldId, // 新增依赖
+    config.bookingStatusValue, // 新增依赖
     loadMeetingData
   ]);
 
-  // 定期刷新数据 - 只在非配置模式下运行
+  // 定期刷新数据 - 只在非配置模式下运行（缩短间隔到10秒）
   useEffect(() => {
-    console.log('定时刷新 useEffect 触发', { isConfig, dataLoaded });
+    console.log('定时刷新 useEffect 触发', { isConfig });
     
     if (isConfig) {
       console.log('配置模式下不启动定时刷新');
       return;
     }
 
-    // 检查必要的配置是否完整且数据已加载
     const hasRequiredConfig = 
       config.roomTableId && 
       config.bookingTableId && 
@@ -730,17 +747,17 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       config.startTimeFieldId && 
       config.endTimeFieldId;
     
-    if (!hasRequiredConfig || !dataLoaded) {
-      console.log('配置不完整或数据未加载，不启动定时刷新');
+    if (!hasRequiredConfig) {
+      console.log('配置不完整，不启动定时刷新');
       return;
     }
     
-    console.log('启动数据定时刷新，间隔30秒');
+    console.log('启动数据定时刷新，间隔10秒');
     
     const interval = window.setInterval(() => {
       console.log('定时刷新会议数据...', new Date().toISOString());
-      loadMeetingData(false); // 定时刷新不显示提示
-    }, 30000);
+      loadMeetingData(false); // 不显示 toast，不设置 loading 状态
+    }, 10000); // 从30秒改为10秒
     
     return () => {
       console.log('清理数据刷新定时器');
@@ -754,7 +771,8 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
     config.bookingRoomFieldId,
     config.startTimeFieldId,
     config.endTimeFieldId,
-    dataLoaded,
+    config.bookingStatusFieldId, // 新增依赖
+    config.bookingStatusValue, // 新增依赖
     loadMeetingData
   ]);
 
@@ -763,14 +781,6 @@ export default function MeetingRoomBoard(props: { bgColor: string }) {
       style={{
         backgroundColor: props.bgColor,
         paddingRight: isConfig ? '400px' : '0',
-        // 添加全屏模式下的样式
-        ...(isFullscreen && {
-          padding: '0',
-          margin: '0',
-          width: '100vw',
-          height: '100vh',
-          overflow: 'hidden'
-        })
       }} 
       className={classnames({
         'main-config': isConfig, 
@@ -820,7 +830,7 @@ interface IMeetingRoomView {
 
 // MeetingRoomView 组件
 function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullscreen, loading, t }: IMeetingRoomView) {
-  const { color, showDate, showCurrentMeeting, title, showSingleRoom } = config;
+  const { showDate, showCurrentMeeting } = config;
   
   // 格式化时间显示
   const formatTime = (date: Date): string => {
@@ -879,29 +889,55 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
   }
 
   // 处理右侧会议列表数据：只显示已结束和未开始的会议，进行中的不显示
-  const filteredMeetings = meetingRooms.flatMap(room => 
-    room.todayMeetings
-      .filter(meeting => meeting.status !== 'ongoing') // 过滤掉进行中的会议
-      .map(meeting => ({
+  // 并区分"即将开始"和"待开始"状态
+  const filteredMeetings = meetingRooms.flatMap(room => {
+    const nonOngoingMeetings = room.todayMeetings.filter(meeting => meeting.status !== 'ongoing');
+    
+    // 找到每个会议室时间最近的未开始会议
+    const upcomingMeetings = nonOngoingMeetings.filter(meeting => meeting.status === 'upcoming');
+    const nearestUpcomingMeeting = upcomingMeetings.length > 0 
+      ? upcomingMeetings.reduce((nearest, current) => 
+          current.startTime.getTime() < nearest.startTime.getTime() ? current : nearest
+        )
+      : null;
+
+    return nonOngoingMeetings.map(meeting => {
+      let displayStatus: 'upcoming' | 'pending' | 'completed' = meeting.status as any;
+      
+      if (meeting.status === 'upcoming') {
+        // 检查是否是时间最近的会议且在开始前30分钟内
+        const timeUntilStart = meeting.startTime.getTime() - currentTime.getTime();
+        const isNearestMeeting = meeting.id === nearestUpcomingMeeting?.id;
+        const isWithin30Minutes = timeUntilStart <= 30 * 60 * 1000;
+        
+        // 只有时间最近的会议且在开始前30分钟内才显示为"即将开始"
+        displayStatus = isNearestMeeting && isWithin30Minutes ? 'upcoming' : 'pending';
+      }
+      
+      return {
         ...meeting,
-        roomName: room.name
-      }))
-  ).sort((a, b) => {
-    // 已结束的排在未开始的后面
-    if (a.status === 'completed' && b.status === 'upcoming') return 1;
-    if (a.status === 'upcoming' && b.status === 'completed') return -1;
-    // 同类型的按时间排序
+        roomName: room.name,
+        displayStatus
+      };
+    });
+  }).sort((a, b) => {
+    // 排序：已完成的在最后，未完成的按时间排序
+    if (a.displayStatus === 'completed' && b.displayStatus !== 'completed') return 1;
+    if (a.displayStatus !== 'completed' && b.displayStatus === 'completed') return -1;
     return a.startTime.getTime() - b.startTime.getTime();
   });
 
+  // 获取当前显示的会议室名称（用于标题）
+  const currentRoomName = meetingRooms.length > 0 ? meetingRooms[0].name : '会议室';
+
   return (
     <div className={classnames("meeting-room-board", {
-      "single-room-mode": showSingleRoom && meetingRooms.length === 1,
+      "default-mode": config.isDefaultMode,
       "fullscreen-mode": isFullscreen
     })}>
-      {/* 标题区域 */}
+      {/* 标题区域 - 显示会议室名称 */}
       <div className="board-header">
-        <h1 className="board-title">{title}</h1>
+        <h1 className="board-title">{currentRoomName}</h1>
         {showDate && (
           <div className="current-date-time">
             <div className="current-date">{formatDate(currentTime)}</div>
@@ -919,131 +955,39 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
         <div className="board-content">
           {/* 左侧：会议室状态概览 */}
           <div className="rooms-overview">
-            {showSingleRoom && meetingRooms.length === 1 ? (
-              // 单一会议室模式：显示会议室名称作为标题
-              <div className="single-room-title-section">
-                <h2 className="room-main-title">{meetingRooms[0].name}</h2>
-                <div className="room-status-main">
-                  {meetingRooms[0].status === 'available' && (
-                    <div className="status-available-main">
-                      <span className="status-icon">🟢</span>
-                      <span className="status-text">{t('meetingRoom.available')}</span>
-                    </div>
-                  )}
-                  {meetingRooms[0].status === 'in-use' && (
-                    <div className="status-in-use-main">
-                      <span className="status-icon">🔴</span>
-                      <span className="status-text">{t('meetingRoom.inUse')}</span>
-                    </div>
-                  )}
-                  {meetingRooms[0].status === 'soon' && (
-                    <div className="status-soon-main">
-                      <span className="status-icon">🟡</span>
-                      <span className="status-text">{t('meetingRoom.soon')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // 多会议室模式：显示会议室状态标题
-              <h2 className="section-title">{t('meetingRoom.roomStatus')}</h2>
-            )}
-            
             <div className="rooms-grid">
               {meetingRooms.map(room => (
                 <div 
                   key={room.id} 
                   className={classnames('room-card', {
-                    'available': room.status === 'available',
-                    'in-use': room.status === 'in-use',
-                    'soon': room.status === 'soon'
+                    'available': room.status === 'available' || room.status === 'soon',
+                    'in-use': room.status === 'in-use'
                   })}
                 >
-                  {/* 新增：大号状态文字（空闲时显示） */}
-                  <div className="room-status-large">
-                    {room.status === 'available' && '🟢 空闲'}
-                    {room.status === 'in-use' && '🔴 使用中'}
-                    {room.status === 'soon' && '🟡 即将开始'}
-                  </div>
+                  <div className="status-title">当前会议室状态</div>
                   
-                  {/* 新增：正常状态显示（有会议时显示） */}
-                  <div className="room-status-normal">
+                  {/* 统一的大号状态显示 - 靠左对齐 */}
+                  <div className="room-status-display">
                     <div className="status-text">
-                      {room.status === 'available' && '🟢 空闲'}
-                      {room.status === 'in-use' && '🔴 使用中'}
-                      {room.status === 'soon' && '🟡 即将开始'}
+                      {(room.status === 'available' || room.status === 'soon') && '🟢 空闲'}
+                      {room.status === 'in-use' && '🔴 进行中'}
                     </div>
                   </div>
-                  
-                  {(!showSingleRoom || meetingRooms.length > 1) && (
-                    <div className="room-header">
-                      <h3 className="room-name">{room.name}</h3>
-                      <div className="room-status">
-                        {room.status === 'available' && '🟢 ' + t('meetingRoom.available')}
-                        {room.status === 'in-use' && '🔴 ' + t('meetingRoom.inUse')}
-                        {room.status === 'soon' && '🟡 ' + t('meetingRoom.soon')}
-                      </div>
-                    </div>
-                  )}
                   
                   {showCurrentMeeting && room.currentMeeting && (
-                    <div className={classnames('current-meeting', {
-                      'single-room-current-meeting': showSingleRoom && meetingRooms.length === 1
-                    })}>
+                    <div className="current-meeting">
                       <div className="meeting-title">{room.currentMeeting.title}</div>
                       <div className="meeting-time">
                         {formatTime(room.currentMeeting.startTime)} - {formatTime(room.currentMeeting.endTime)}
                       </div>
                       <div className="meeting-organizer">{t('meetingRoom.organizer')}: {room.currentMeeting.organizer}</div>
-                      <div className={classnames('meeting-progress', {
-                        'single-room-progress': showSingleRoom && meetingRooms.length === 1
-                      })}>
+                      <div className="meeting-progress">
                         <div className="progress-text">
                           {t('meetingRoom.elapsedTime')}: {getElapsedTime(room.currentMeeting.startTime)}
                         </div>
                         <div className="progress-text">
                           {t('meetingRoom.remainingTime')}: {getTimeRemaining(room.currentMeeting.endTime)}
                         </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {room.status === 'soon' && !room.currentMeeting && room.todayMeetings.length > 0 && (
-                    <div className={classnames('next-meeting', {
-                      'single-room-next-meeting': showSingleRoom && meetingRooms.length === 1
-                    })}>
-                      <div className="next-meeting-label">{t('meetingRoom.nextMeeting')}:</div>
-                      {room.todayMeetings.find(m => m.status === 'upcoming') && (
-                        <div className="next-meeting-info">
-                          <div className="meeting-title">
-                            {room.todayMeetings.find(m => m.status === 'upcoming')?.title}
-                          </div>
-                          <div className="meeting-time">
-                            {formatTime(room.todayMeetings.find(m => m.status === 'upcoming')!.startTime)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 单一会议室模式：显示今日会议统计 */}
-                  {showSingleRoom && meetingRooms.length === 1 && (
-                    <div className="room-summary">
-                      <div className="summary-item">
-                        <span className="summary-label">今日会议总数:</span>
-                        <span className="summary-value">{room.todayMeetings.length} 个</span>
-                      </div>
-                      <div className="summary-item">
-                        <span className="summary-label">进行中:</span>
-                        <span className="summary-value">
-                          {room.todayMeetings.filter(m => m.status === 'ongoing').length} 个
-                        </span>
-                      </div>
-                      <div className="summary-item">
-                        <span className="summary-label">待开始:</span>
-                        <span className="summary-value">
-                          {room.todayMeetings.filter(m => m.status === 'upcoming').length} 个
-                        </span>
                       </div>
                     </div>
                   )}
@@ -1061,8 +1005,9 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
                   <div 
                     key={`${meeting.id}-${index}`} 
                     className={classnames('meeting-item', {
-                      'upcoming': meeting.status === 'upcoming',
-                      'completed': meeting.status === 'completed'
+                      'upcoming': meeting.displayStatus === 'upcoming',
+                      'pending': meeting.displayStatus === 'pending',
+                      'completed': meeting.displayStatus === 'completed'
                     })}
                   >
                     <div className="meeting-time-range">
@@ -1076,8 +1021,9 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
                       </div>
                     </div>
                     <div className="meeting-status">
-                      {meeting.status === 'upcoming' && '⏰ ' + t('meetingRoom.upcoming')}
-                      {meeting.status === 'completed' && '✅ ' + t('meetingRoom.completed')}
+                      {meeting.displayStatus === 'upcoming' && t('meetingRoom.upcoming')}
+                      {meeting.displayStatus === 'pending' && t('meetingRoom.pending')}
+                      {meeting.displayStatus === 'completed' && t('meetingRoom.completed')}
                     </div>
                   </div>
                 ))
@@ -1094,7 +1040,7 @@ function MeetingRoomView({ config, meetingRooms, currentTime, isConfig, isFullsc
   );
 }
 
-// ConfigPanel 组件（保持不变）
+// ConfigPanel 组件 - 添加预定状态筛选配置
 function ConfigPanel(props: {
   config: IMeetingRoomConfig;
   setConfig: React.Dispatch<React.SetStateAction<IMeetingRoomConfig>>;
@@ -1110,7 +1056,6 @@ function ConfigPanel(props: {
 
   const onSaveConfig = () => {
     try {
-      // 确保配置数据是有效的
       const configToSave = {
         color: config.color || DEFAULT_COLOR,
         roomTableId: config.roomTableId || '',
@@ -1124,10 +1069,12 @@ function ConfigPanel(props: {
         startTimeFieldId: config.startTimeFieldId || '',
         endTimeFieldId: config.endTimeFieldId || '',
         organizerFieldId: config.organizerFieldId || '',
+        bookingStatusFieldId: config.bookingStatusFieldId || '', // 新增
+        bookingStatusValue: config.bookingStatusValue || '已预定', // 新增
         showDate: config.showDate !== undefined ? config.showDate : true,
         showCurrentMeeting: config.showCurrentMeeting !== undefined ? config.showCurrentMeeting : true,
         title: config.title || t('meetingRoom.boardTitle', '会议室状态看板'),
-        showSingleRoom: config.showSingleRoom !== undefined ? config.showSingleRoom : false,
+        isDefaultMode: true,
         selectedRoomId: config.selectedRoomId || '',
       };
 
@@ -1171,10 +1118,11 @@ function ConfigPanel(props: {
       startTimeFieldId: '',
       endTimeFieldId: '',
       organizerFieldId: '',
+      bookingStatusFieldId: '', // 重置预定状态字段
+      bookingStatusValue: '已预定', // 重置预定状态值
     });
   };
 
-  // 修复 Select filter 函数的类型问题
   const filterOption = (input: string, option: any): boolean => {
     if (option && option.children) {
       return String(option.children).toLowerCase().includes(input.toLowerCase());
@@ -1216,7 +1164,7 @@ function ConfigPanel(props: {
             </h4>
             
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.showTitle')}</label>
+              <label className='config-label'>显示日期时间</label>
               <div className='config-content'>
                 <input
                   type="checkbox"
@@ -1227,20 +1175,18 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>看板标题</label>
+              <label className='config-label'>显示当前会议</label>
               <div className='config-content'>
                 <input
-                  type="text"
-                  value={config.title}
-                  onChange={(e) => setConfig({...config, title: e.target.value})}
-                  className='config-input'
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontSize: '14px' }}
+                  type="checkbox"
+                  checked={config.showCurrentMeeting}
+                  onChange={(e) => setConfig({...config, showCurrentMeeting: e.target.checked})}
                 />
               </div>
             </div>
           </div>
 
-          {/* 单一会议室选择 */}
+          {/* 会议室选择 */}
           <div className='config-subsection'>
             <h4 style={{ 
               margin: '24px 0 12px 0', 
@@ -1251,47 +1197,31 @@ function ConfigPanel(props: {
               background: '#fff2e8',
               borderRadius: '4px'
             }}>
-              显示设置
+              会议室选择
             </h4>
             
             <div className='config-item'>
-              <label className='config-label'>显示单一会议室</label>
+              <label className='config-label'>选择会议室</label>
               <div className='config-content'>
-                <input
-                  type="checkbox"
-                  checked={config.showSingleRoom}
-                  onChange={(e) => setConfig({...config, showSingleRoom: e.target.checked})}
-                />
-                <span style={{ fontSize: '12px', color: '#666', marginLeft: '8px' }}>
-                  启用后只显示选定的会议室
-                </span>
-              </div>
-            </div>
-
-            {config.showSingleRoom && (
-              <div className='config-item'>
-                <label className='config-label'>选择会议室</label>
-                <div className='config-content'>
-                  <Select
-                    value={config.selectedRoomId}
-                    onChange={(value) => setConfig({...config, selectedRoomId: String(value)})}
-                    style={{ width: '100%' }}
-                    placeholder="请选择要显示的会议室"
-                    disabled={allRooms.length === 0}
-                    loading={loading}
-                  >
-                    {allRooms.map((room) => (
-                      <Select.Option key={room.id} value={room.id}>
-                        {room.name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                    {allRooms.length === 0 ? '请先加载数据' : `共 ${allRooms.length} 个会议室可选`}
-                  </div>
+                <Select
+                  value={config.selectedRoomId}
+                  onChange={(value) => setConfig({...config, selectedRoomId: String(value)})}
+                  style={{ width: '100%' }}
+                  placeholder="请选择要显示的会议室"
+                  disabled={allRooms.length === 0}
+                  loading={loading}
+                >
+                  {allRooms.map((room) => (
+                    <Select.Option key={room.id} value={room.id}>
+                      {room.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  {allRooms.length === 0 ? '请先加载数据' : `共 ${allRooms.length} 个会议室可选`}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* 会议室表配置 */}
@@ -1305,17 +1235,17 @@ function ConfigPanel(props: {
               background: '#e6f7ff',
               borderRadius: '4px'
             }}>
-              {t('meetingRoom.roomTableConfig')}
+              会议室表配置
             </h4>
             
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.selectRoomTable')}</label>
+              <label className='config-label'>选择会议室表</label>
               <div className='config-content'>
                 <Select
                   value={config.roomTableId}
                   onChange={handleRoomTableChange}
                   style={{ width: '100%' }}
-                  placeholder={t('meetingRoom.selectTablePlaceholder')}
+                  placeholder="请选择会议室表"
                   loading={loading}
                 >
                   {tables.map((table) => (
@@ -1328,13 +1258,13 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.roomNameField')}</label>
+              <label className='config-label'>会议室名称字段</label>
               <div className='config-content'>
                 <Select
                   value={config.roomNameFieldId}
                   onChange={(value) => setConfig({...config, roomNameFieldId: String(value)})}
                   style={{ width: '100%' }}
-                  placeholder={t('meetingRoom.selectFieldPlaceholder')}
+                  placeholder="请选择会议室名称字段"
                   disabled={!config.roomTableId}
                   loading={loading}
                   filter={filterOption}
@@ -1347,32 +1277,6 @@ function ConfigPanel(props: {
                     </Select.Option>
                   ))}
                 </Select>
-              </div>
-            </div>
-
-            <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.roomIdField')}（可选）</label>
-              <div className='config-content'>
-                <Select
-                  value={config.roomIdFieldId}
-                  onChange={(value) => setConfig({...config, roomIdFieldId: String(value)})}
-                  style={{ width: '100%' }}
-                  placeholder="请选择会议室ID字段（用于精确匹配）"
-                  disabled={!config.roomTableId}
-                  loading={loading}
-                >
-                  <Select.Option value="">使用记录ID</Select.Option>
-                  {roomFields
-                    .filter(field => field.type.includes('文本') || field.type.includes('自动编号'))
-                    .map((field) => (
-                    <Select.Option key={field.id} value={field.id}>
-                      {field.name}
-                    </Select.Option>
-                  ))}
-                </Select>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  如不选择，将使用记录ID进行匹配
-                </div>
               </div>
             </div>
           </div>
@@ -1388,17 +1292,17 @@ function ConfigPanel(props: {
               background: '#f6ffed',
               borderRadius: '4px'
             }}>
-              {t('meetingRoom.bookingTableConfig')}
+              预定表配置
             </h4>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.selectBookingTable')}</label>
+              <label className='config-label'>选择预定表</label>
               <div className='config-content'>
                 <Select
                   value={config.bookingTableId}
                   onChange={handleBookingTableChange}
                   style={{ width: '100%' }}
-                  placeholder={t('meetingRoom.selectTablePlaceholder')}
+                  placeholder="请选择会议预定表"
                   loading={loading}
                 >
                   {tables.map((table) => (
@@ -1411,7 +1315,7 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.bookingRoomField')}</label>
+              <label className='config-label'>关联会议室字段</label>
               <div className='config-content'>
                 <Select
                   value={config.bookingRoomFieldId}
@@ -1442,13 +1346,13 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.meetingTitleField')}</label>
+              <label className='config-label'>会议标题字段</label>
               <div className='config-content'>
                 <Select
                   value={config.meetingTitleFieldId}
                   onChange={(value) => setConfig({...config, meetingTitleFieldId: String(value)})}
                   style={{ width: '100%' }}
-                  placeholder={t('meetingRoom.selectFieldPlaceholder')}
+                  placeholder="请选择会议标题字段"
                   disabled={!config.bookingTableId}
                   loading={loading}
                 >
@@ -1464,7 +1368,7 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.startTimeField')}</label>
+              <label className='config-label'>开始时间字段</label>
               <div className='config-content'>
                 <Select
                   value={config.startTimeFieldId}
@@ -1486,7 +1390,7 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.endTimeField')}</label>
+              <label className='config-label'>结束时间字段</label>
               <div className='config-content'>
                 <Select
                   value={config.endTimeFieldId}
@@ -1508,7 +1412,7 @@ function ConfigPanel(props: {
             </div>
 
             <div className='config-item'>
-              <label className='config-label'>{t('meetingRoom.organizerField')}（可选）</label>
+              <label className='config-label'>组织者字段</label>
               <div className='config-content'>
                 <Select
                   value={config.organizerFieldId}
@@ -1520,7 +1424,7 @@ function ConfigPanel(props: {
                 >
                   <Select.Option value="">不选择</Select.Option>
                   {bookingFields
-                    .filter(field => field.type.includes('文本') || field.type.includes('人员'))
+                    .filter(field => field.type.includes('文本') || field.type.includes('人员') || field.type.includes('创建人') )
                     .map((field) => (
                     <Select.Option key={field.id} value={field.id}>
                       {field.name}
@@ -1529,6 +1433,57 @@ function ConfigPanel(props: {
                 </Select>
               </div>
             </div>
+
+            {/* 新增：预定状态筛选配置 */}
+            <div className='config-item'>
+              <label className='config-label'>预定状态字段</label>
+              <div className='config-content'>
+                <Select
+                  value={config.bookingStatusFieldId}
+                  onChange={(value) => setConfig({...config, bookingStatusFieldId: String(value)})}
+                  style={{ width: '100%' }}
+                  placeholder="请选择预定状态字段（可选）"
+                  disabled={!config.bookingTableId}
+                  loading={loading}
+                >
+                  <Select.Option value="">不选择</Select.Option>
+                  {bookingFields
+                    .filter(field => field.type.includes('单选'))
+                    .map((field) => (
+                    <Select.Option key={field.id} value={field.id}>
+                      {field.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  可选：用于筛选特定状态的预定记录
+                </div>
+              </div>
+            </div>
+
+            {config.bookingStatusFieldId && (
+              <div className='config-item'>
+                <label className='config-label'>预定状态值</label>
+                <div className='config-content'>
+                  <input
+                    type="text"
+                    value={config.bookingStatusValue}
+                    onChange={(e) => setConfig({...config, bookingStatusValue: e.target.value})}
+                    placeholder="请输入要筛选的预定状态值"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '0.9rem'
+                    }}
+                  />
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    例如：已预定、已确认、有效等
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 数据预览 */}
@@ -1539,7 +1494,7 @@ function ConfigPanel(props: {
               fontSize: '14px', 
               fontWeight: '600' 
             }}>
-              {t('meetingRoom.dataPreview')}
+              数据预览
             </h4>
             
             <div className='config-item'>
@@ -1554,7 +1509,7 @@ function ConfigPanel(props: {
                   loading={loading}
                   style={{ marginLeft: '8px' }}
                 >
-                  {t('meetingRoom.refresh')}
+                  刷新数据
                 </Button>
               </label>
               <div className='config-content'>
@@ -1569,7 +1524,12 @@ function ConfigPanel(props: {
                       <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
                         • 会议室表: {tables.find(t => t.id === config.roomTableId)?.name}<br/>
                         • 预定表: {tables.find(t => t.id === config.bookingTableId)?.name}<br/>
-                        • 显示模式: {config.showSingleRoom ? '单一会议室' : '所有会议室'}
+                        • 当前会议室: {allRooms.find(r => r.id === config.selectedRoomId)?.name || '未选择'}<br/>
+                        {config.bookingStatusFieldId && (
+                          <>
+                            • 预定状态筛选: {config.bookingStatusValue}<br/>
+                          </>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -1579,26 +1539,6 @@ function ConfigPanel(props: {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* 主题颜色 */}
-          <div className='config-item'>
-            <label className='config-label'>{t('meetingRoom.color')}</label>
-            <div className='config-content'>
-              <input
-                type="color"
-                value={config.color}
-                onChange={(e) => setConfig({...config, color: e.target.value})}
-                className='color-input'
-                style={{ 
-                  width: '60px', 
-                  height: '40px', 
-                  border: '1px solid #d9d9d9', 
-                  borderRadius: '4px', 
-                  cursor: 'pointer' 
-                }}
-              />
             </div>
           </div>
         </div>
@@ -1619,7 +1559,7 @@ function ConfigPanel(props: {
           fontSize: '14px'
         }}
       >
-        {t('confirm')}
+        保存配置
       </Button>
     </div>
   );

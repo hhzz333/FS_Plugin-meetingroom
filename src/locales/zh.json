@@ -36,6 +36,7 @@
     "available": "空闲",
     "inUse": "使用中",
     "soon": "即将开始",
+    "pending":"待开始",
     "ongoing": "进行中",
     "upcoming": "即将开始",
     "completed": "已结束",
