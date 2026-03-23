@@ -282,3 +282,10 @@ html,
 body {
     background: transparent !important;
 }
+
+// 应用容器样式
+.app-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}

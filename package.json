@@ -1,22 +1,31 @@
 {
-  "name": "react-emplate",
-  "version": "1.0.0",
+  "name": "meetingroom-android",
+  "version": "2.0.0",
   "type": "module",
-  "description": "React TypeScript on Replit, using Vite bundler",
+  "description": "会议室看板 - 独立安卓应用",
   "scripts": {
     "start": "vite",
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:build": "cd backend && npm run build",
+    "backend:start": "cd backend && npm run start",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "npm run build && npx cap sync android"
   },
   "keywords": [],
   "author": "",
   "output": "dist",
   "license": "ISC",
   "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0",
     "@douyinfe/semi-foundation": "^2.58.0",
     "@douyinfe/semi-ui": "^2.58.0",
-    "@lark-base-open/js-sdk": "https://lf3-static.bytednsdoc.com/obj/eden-cn/jjjpceh7nulojvhj/@lark-base-open-js-sdk-0.4.1-beta.5.tgz",
+    "@lark-base-open/js-sdk": "^1.0.2",
     "@semi-bot/semi-theme-feishu-dashboard": "^1.0.4",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
@@ -32,7 +41,12 @@
     "reset-css": "^5.0.2",
     "sass": "^1.77.1",
     "typescript": "^5.4.5",
-    "vite": "^5.2.11",
-    "vite-plugin-semi-theming": "^0.1.0"
+    "vite": "^7.3.1",
+    "vite-plugin-semi-theming": "^0.1.0",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.2",
+    "@types/node": "^20.12.12"
   }
 }

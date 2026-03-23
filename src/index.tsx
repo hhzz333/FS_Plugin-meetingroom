@@ -5,22 +5,25 @@ import {
   createHashRouter,
   RouterProvider,
 } from "react-router-dom";
-import LoadApp from './components/LoadApp';
+import { LocaleProvider } from '@douyinfe/semi-ui';
+import zh_CN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
+import './locales/i18n';
 
 const router = createHashRouter([
   {
     path: '/',
-    element: <App></App>
+    element: <App />
   },
-])
+]);
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
+
 root.render(
   <React.StrictMode>
-    <LoadApp>
-      <RouterProvider router={router}></RouterProvider>
-    </LoadApp>
+    <LocaleProvider locale={zh_CN}>
+      <RouterProvider router={router} />
+    </LocaleProvider>
   </React.StrictMode>
 );

@@ -13,5 +13,11 @@ export default defineConfig({
     ],
     server: {
         host: "0.0.0.0",
+        proxy: {
+            '/api': {
+                target: 'http://172.21.1.120:3000',
+                changeOrigin: true,
+            },
+        },
     },
 });

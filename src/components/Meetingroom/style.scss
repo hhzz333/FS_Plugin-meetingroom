@@ -1,832 +1,201 @@
-// 会议室签到板样式
 .meeting-room-board {
   padding: 20px;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  min-height: calc(100vh - 80px);
   box-sizing: border-box;
 
-  // 默认模式：左右布局（左侧2份，右侧1份）
-  .board-content {
-    display: grid;
-    grid-template-columns: 2fr 1fr; // 左侧2份，右侧1份
-    gap: 25px;
-    height: calc(100vh - 180px);
-
-    // 响应式布局调整
-    @media (max-width: 768px) and (orientation: portrait) {
-      grid-template-columns: 1fr;
-      height: auto;
-      gap: 20px;
-    }
-  }
-
-  // 全屏模式样式 - 保持和非全屏模式一致
+  // 全屏模式
   &.fullscreen-mode {
-    padding: 20px;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    z-index: auto;
+    padding: 40px;
   }
 
-  // 默认模式样式
-  &.default-mode {
-    .board-content {
-      display: grid;
-      grid-template-columns: 2fr 1fr; // 左侧2份，右侧1份
-      gap: 25px;
-      height: calc(100vh - 180px);
-
-      // 只在竖屏或超小屏幕时才切换为单列布局
-      @media (max-width: 768px) and (orientation: portrait) {
-        grid-template-columns: 1fr;
-        height: auto;
-        gap: 20px;
-      }
-      
-      // 横屏时保持左右布局，调整间距
-      @media (max-width: 1024px) and (orientation: landscape) {
-        gap: 20px;
-        height: calc(100vh - 160px);
-      }
-      
-      // 小高度横屏设备调整
-      @media (max-height: 600px) and (orientation: landscape) {
-        height: calc(100vh - 140px);
-        gap: 15px;
-      }
-    }
-
-    .rooms-overview {
-      // 移除左侧最外面的毛玻璃布局和边框
-      background: none;
-      backdrop-filter: none;
-      border: none;
-      box-shadow: none;
-      border-radius: 0;
-      padding: 0;
-
-      .rooms-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 18px;
-        max-height: calc(100vh - 250px);
-        overflow-y: auto;
-        padding-right: 6px;
-
-        // 横屏设备调整最大高度
-        @media (max-width: 1024px) and (orientation: landscape) {
-          max-height: calc(100vh - 220px);
-        }
-        
-        @media (max-height: 600px) and (orientation: landscape) {
-          max-height: calc(100vh - 180px);
-          gap: 12px;
-        }
-
-        &::-webkit-scrollbar {
-          width: 5px;
-        }
-
-        &::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-        }
-
-        &::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 3px;
-        }
-        
-        .room-card {
-          //background: rgba(255, 255, 255, 0.08);
-          background: none;
-          //backdrop-filter: blur(20px);
-          backdrop-filter: none;
-          border: none; // 移除外部边框
-          min-height: 400px;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start; // 顶部对齐
-          border-radius: 24px;
-          padding: 30px;
-          box-shadow: 
-            0px 2px 2px rgba(0, 0, 0, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-
-          // 横屏设备调整
-          @media (max-width: 1024px) and (orientation: landscape) {
-            min-height: 350px;
-            padding: 25px;
-            border-radius: 20px;
-          }
-          
-          @media (max-height: 600px) and (orientation: landscape) {
-            min-height: 280px;
-            padding: 20px;
-            border-radius: 16px;
-          }
-
-          // 状态标题 - 确保显示
-          .status-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 20px;
-            text-align: left;
-            opacity: 0.9;
-            display: block !important; // 确保显示
-            
-            // 横屏设备调整
-            @media (max-width: 1024px) and (orientation: landscape) {
-              font-size: 1.6rem;
-              margin-bottom: 15px;
-            }
-            
-            @media (max-height: 600px) and (orientation: landscape) {
-              font-size: 1.4rem;
-              margin-bottom: 12px;
-            }
-          }
-
-          // 统一的状态显示 - 靠左对齐
-          .room-status-display {
-            display: flex;
-            justify-content: flex-start;
-            margin-bottom: 40px;
-            
-            // 横屏设备调整
-            @media (max-width: 1024px) and (orientation: landscape) {
-              margin-bottom: 30px;
-            }
-            
-            @media (max-height: 600px) and (orientation: landscape) {
-              margin-bottom: 20px;
-            }
-            
-            .status-text {
-              font-size: 4rem; // 放大状态标签
-              font-weight: 800; // 加粗字体
-              padding: 25px 40px; // 增加内边距
-              border-radius: 20px;
-              text-align: left;
-              display: inline-block;
-              backdrop-filter: blur(10px);
-              border: none !important; // 移除边框
-              box-shadow: 
-                0 8px 25px rgba(0, 0, 0, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.2);
-              transition: all 0.3s ease;
-              margin-left: 0;
-              
-              // 横屏设备调整
-              @media (max-width: 1024px) and (orientation: landscape) {
-                font-size: 3.2rem;
-                padding: 20px 30px;
-                border-radius: 16px;
-              }
-              
-              @media (max-height: 600px) and (orientation: landscape) {
-                font-size: 2.8rem;
-                padding: 15px 25px;
-                border-radius: 14px;
-              }
-            }
-          }
-
-          // 空闲状态
-          &.available {
-            .room-status-display .status-text {
-              background: linear-gradient(135deg, 
-                rgba(16, 185, 129, 0.25), 
-                rgba(5, 150, 105, 0.15));
-              color: #10b981 !important; // 使用状态对应的绿色
-            }
-          }
-
-          // 进行中状态
-          &.in-use {
-            .room-status-display .status-text {
-              background: linear-gradient(135deg, 
-                rgba(239, 68, 68, 0.25), 
-                rgba(220, 38, 38, 0.15));
-              color: #ef4444 !important; // 使用状态对应的红色
-            }
-          }
-
-          .current-meeting {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            text-align: left;
-            padding: 0; // 移除内边距
-            margin-bottom: 0;
-            border-radius: 0; // 移除圆角
-            background: none; // 移除背景
-            border: none; // 移除边框
-            box-shadow: none; // 移除阴影
-            backdrop-filter: none; // 移除毛玻璃效果
-            
-            .meeting-title {
-              font-size: 1.8rem;
-              margin-bottom: 15px;
-              font-weight: 700;
-              color: white;
-              
-              // 横屏设备调整
-              @media (max-width: 1024px) and (orientation: landscape) {
-                font-size: 1.6rem;
-                margin-bottom: 12px;
-              }
-              
-              @media (max-height: 600px) and (orientation: landscape) {
-                font-size: 1.4rem;
-                margin-bottom: 10px;
-              }
-            }
-            
-            .meeting-time {
-              font-size: 1.3rem;
-              margin-bottom: 12px;
-              opacity: 0.95;
-              color: white;
-              
-              // 横屏设备调整
-              @media (max-width: 1024px) and (orientation: landscape) {
-                font-size: 1.2rem;
-                margin-bottom: 10px;
-              }
-              
-              @media (max-height: 600px) and (orientation: landscape) {
-                font-size: 1.1rem;
-                margin-bottom: 8px;
-              }
-            }
-            
-            .meeting-organizer {
-              font-size: 1.1rem;
-              margin-bottom: 20px;
-              opacity: 0.9;
-              color: white;
-              
-              // 横屏设备调整
-              @media (max-width: 1024px) and (orientation: landscape) {
-                font-size: 1rem;
-                margin-bottom: 15px;
-              }
-              
-              @media (max-height: 600px) and (orientation: landscape) {
-                font-size: 0.95rem;
-                margin-bottom: 12px;
-              }
-            }
-            
-            .meeting-progress {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 15px;
-              
-              // 横屏设备调整
-              @media (max-width: 1024px) and (orientation: landscape) {
-                gap: 12px;
-              }
-              
-              @media (max-height: 600px) and (orientation: landscape) {
-                gap: 10px;
-                grid-template-columns: 1fr; // 小横屏改为单列
-              }
-              
-              .progress-text {
-                padding: 14px;
-                font-size: 1rem;
-                background: rgba(255, 255, 255, 0.15);
-                border-radius: 12px;
-                font-weight: 600;
-                backdrop-filter: blur(10px);
-                color: white;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                
-                // 横屏设备调整
-                @media (max-width: 1024px) and (orientation: landscape) {
-                  padding: 12px;
-                  font-size: 0.95rem;
-                  border-radius: 10px;
-                }
-                
-                @media (max-height: 600px) and (orientation: landscape) {
-                  padding: 10px;
-                  font-size: 0.9rem;
-                  border-radius: 8px;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 右侧会议列表调整
-    .meetings-list {
-      width: 100%;
-      overflow: hidden;
-      
-      .meetings-timeline {
-        max-height: calc(100vh - 250px);
-        overflow-y: auto;
-        padding-right: 6px;
-
-        // 横屏设备调整最大高度
-        @media (max-width: 1024px) and (orientation: landscape) {
-          max-height: calc(100vh - 220px);
-        }
-        
-        @media (max-height: 600px) and (orientation: landscape) {
-          max-height: calc(100vh - 180px);
-        }
-
-        &::-webkit-scrollbar {
-          width: 5px;
-        }
-
-        &::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-        }
-
-        &::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 3px;
-        }
-
-        .no-meetings-message {
-          text-align: center;
-          color: rgba(255, 255, 255, 0.7);
-          font-size: 1rem;
-          padding: 40px 20px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          backdrop-filter: blur(10px);
-          transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
-          will-change: background-color, backdrop-filter;
-          transform: translateZ(0); /* 启用硬件加速 */
-          
-          // 横屏设备调整
-          @media (max-width: 1024px) and (orientation: landscape) {
-            padding: 30px 15px;
-            font-size: 0.95rem;
-          }
-        }
-      }
-
-      .meeting-item {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        backdrop-filter: blur(10px);
-        transition: background-color 0.3s ease, backdrop-filter 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
-        will-change: background-color, backdrop-filter;
-        transform: translateZ(0); /* 启用硬件加速 */
-        border: none;
-
-        // 横屏设备调整
-        @media (max-width: 1024px) and (orientation: landscape) {
-          padding: 12px;
-          gap: 12px;
-          margin-bottom: 8px;
-          border-radius: 10px;
-        }
-
-        &:hover {
-          transform: translateX(3px);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-        }
-
-        &.upcoming {
-          .meeting-status {
-            color: #f59e0b;
-          }
-        }
-
-        &.completed {
-          opacity: 0.8;
-          
-          .meeting-status {
-            color: #64748b;
-          }
-        }
-
-        .meeting-time-range {
-          flex: 0 0 110px;
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #475569;
-          font-family: 'Courier New', monospace;
-          
-          // 横屏设备调整
-          @media (max-width: 1024px) and (orientation: landscape) {
-            flex: 0 0 95px;
-            font-size: 0.8rem;
-          }
-        }
-
-        .meeting-details {
-          flex: 1;
-          overflow: hidden;
-          
-          .meeting-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            
-            // 横屏设备调整
-            @media (max-width: 1024px) and (orientation: landscape) {
-              font-size: 0.95rem;
-            }
-          }
-
-          // 隐藏会议室名称和组织者信息
-          .meeting-meta {
-            display: none !important;
-          }
-        }
-
-        .meeting-status {
-          flex: 0 0 70px;
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-align: center;
-          padding: 4px 8px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.8);
-          
-          // 横屏设备调整
-          @media (max-width: 1024px) and (orientation: landscape) {
-            flex: 0 0 60px;
-            font-size: 0.7rem;
-            padding: 3px 6px;
-          }
-        }
-      }
-    }
-  }
-
-  // 头部区域
-  .board-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-    padding: 20px 25px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 16px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-    backdrop-filter: blur(10px);
-    transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
-    will-change: background-color, backdrop-filter;
-    transform: translateZ(0); /* 启用硬件加速 */
-
-    // 横屏设备调整
-    @media (max-width: 1024px) and (orientation: landscape) {
-      margin-bottom: 20px;
-      padding: 18px 22px;
-      border-radius: 14px;
-    }
-
-    .board-title {
-      margin: 0;
-      font-size: 2.2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-align: left;
-      
-      // 横屏设备调整
-      @media (max-width: 1024px) and (orientation: landscape) {
-        font-size: 1.9rem;
-      }
-    }
-
-    .current-date-time {
-      text-align: right;
-      
-      .current-date {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 4px;
-        
-        // 横屏设备调整
-        @media (max-width: 1024px) and (orientation: landscape) {
-          font-size: 1rem;
-        }
-      }
-      
-      .current-time {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #667eea;
-        font-family: 'Courier New', monospace;
-        
-        // 横屏设备调整
-        @media (max-width: 1024px) and (orientation: landscape) {
-          font-size: 1.6rem;
-        }
-      }
-    }
-  }
-
-  // 分区标题
-  .section-title {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: white;
-    margin: 0 0 15px 0;
-    padding: 12px 20px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
-    backdrop-filter: blur(10px);
-    transition: background-color 0.3s ease, backdrop-filter 0.3s ease;
-    will-change: background-color, backdrop-filter;
-    transform: translateZ(0); /* 启用硬件加速 */
-    
-    // 横屏设备调整
-    @media (max-width: 1024px) and (orientation: landscape) {
-      font-size: 1.3rem;
-      padding: 10px 16px;
-      margin-bottom: 12px;
-    }
-  }
-
-  // 加载状态
+  // 无认证/配置提示
+  .no-auth-message,
+  .no-config-message,
+  .empty-container,
   .loading-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 300px;
-    color: white;
+    min-height: 400px;
+    text-align: center;
+    gap: 16px;
+  }
 
-    .loading-spinner {
-      width: 50px;
-      height: 50px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-left: 4px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-bottom: 16px;
+  // 顶部工具栏
+  .board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--semi-color-border);
+
+    .current-datetime {
+      flex: 1;
+      flex-shrink: 0;
     }
 
-    .loading-text {
-      font-size: 1.1rem;
-      opacity: 0.9;
+    .board-title {
+      flex: 0 0 auto;
+      text-align: center;
+      margin: 0;
+    }
+
+    .board-actions {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-shrink: 0;
     }
   }
 
-  // 无数据状态
-  .no-meeting-rooms {
+  // 会议室容器
+  .rooms-container {
+    .rooms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+
+  // 会议室卡片
+  .room-card {
+    background: var(--semi-color-bg-0);
+    border-radius: 12px;
+    padding: 20px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    height: 90px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 400px;
-    color: white;
-    text-align: center;
 
-    .no-data-text {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 12px;
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
-    .no-data-hint {
-      font-size: 1rem;
-      opacity: 0.8;
-    }
-  }
-}
+    // 可点击样式
+    &.room-card-clickable {
+      cursor: pointer;
 
-// 配置面板样式
-.config-panel {
-  .config-section {
-    margin-bottom: 24px;
-  }
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      }
 
-  .config-item {
-    margin-bottom: 16px;
-    
-    .config-label {
-      display: block;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
+      &:active {
+        transform: translateY(0);
+      }
     }
 
-    .config-content {
+    // 状态样式
+    &-available {
+      border-color: var(--semi-color-success);
+      background: linear-gradient(135deg, rgba(52, 199, 36, 0.05) 0%, var(--semi-color-bg-0) 100%);
+    }
+
+    &-in-use {
+      border-color: var(--semi-color-danger);
+      background: linear-gradient(135deg, rgba(245, 74, 69, 0.05) 0%, var(--semi-color-bg-0) 100%);
+    }
+
+    &-soon {
+      border-color: var(--semi-color-warning);
+      background: linear-gradient(135deg, rgba(255, 136, 0, 0.05) 0%, var(--semi-color-bg-0) 100%);
+    }
+
+    // 会议室头部
+    .room-header {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--semi-color-border);
 
-      .config-input {
-        padding: 8px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.9rem;
-        transition: border-color 0.2s ease;
+      .room-name {
+        h3 {
+          margin: 0;
+        }
+      }
+    }
 
-        &:focus {
-          outline: none;
-          border-color: #667eea;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    // 会议室内容
+    .room-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+
+      .current-meeting {
+        background: var(--semi-color-fill-0);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+
+        h4 {
+          margin: 4px 0;
+          color: var(--semi-color-primary);
+          font-size: 16px;
         }
       }
 
-      .data-preview {
-        width: '100%';
-        min-height: 80px;
+      .video-container {
+        margin-bottom: 12px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
         max-height: 120px;
-        overflow-y: auto;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        padding: 12px;
 
-        .preview-count {
-          background: #667eea;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          margin-bottom: 8px;
-          display: inline-block;
+        video {
+          display: block;
+          width: 100%;
+          height: 100%;
+          max-height: 120px;
+          object-fit: contain;
         }
+      }
 
-        .no-data-preview {
-          color: #94a3b8;
-          font-size: 0.85rem;
-          text-align: center;
-          padding: 20px 0;
-        }
+      .today-meetings-count {
+        text-align: center;
+        padding: 8px;
+        background: var(--semi-color-fill-0);
+        border-radius: 8px;
+        margin-top: auto;
       }
     }
   }
 }
 
-// 主布局样式
-.main {
-  transition: padding-right 0.3s ease;
-
-  &.main-config {
-    padding-right: 320px;
-  }
-
-  &.fullscreen-mode {
-    position: static;
-    width: auto;
-    height: auto;
-    padding: 0;
-    margin: 0;
-    overflow: visible;
-    z-index: auto;
-  }
-}
-
-// 动画
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-// 响应式设计 - 修改为只在竖屏时切换布局
-@media (max-width: 768px) and (orientation: portrait) {
+// 响应式调整
+@media (max-width: 768px) {
   .meeting-room-board {
-    padding: 16px;
+    padding: 12px;
 
     .board-header {
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       text-align: center;
 
-      .current-date-time {
-        text-align: center;
-      }
-    }
-
-    .board-content {
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-
-    // 默认模式移动端适配 - 只在竖屏时生效
-  &.default-mode {
-      .rooms-overview .rooms-grid .room-card {
-        min-height: auto;
-        padding: 20px;
-        
-        .status-title {
-          font-size: 1.5rem;
-          margin-bottom: 15px;
-        }
-        
-        .room-status-display .status-text {
-          font-size: 3rem !important;
-          padding: 20px 30px !important;
-        }
-      }
-    }
-  }
-
-  .main.main-config {
-    padding-right: 0;
-    
-    .config-panel {
-      width: 100%;
-      position: relative;
-    }
-  }
-}
-
-// 小屏幕横屏适配
-@media (max-width: 1024px) and (orientation: landscape) {
-  .meeting-room-board {
-    padding: 18px;
-    
-    .board-header {
-      margin-bottom: 20px;
-    }
-  }
-}
-
-// 小高度横屏设备适配
-@media (max-height: 600px) and (orientation: landscape) {
-  .meeting-room-board {
-    padding: 15px;
-    
-    .board-header {
-      margin-bottom: 15px;
-      padding: 15px 20px;
-    }
-  }
-}
-
-// 暗色主题支持
-@media (prefers-color-scheme: dark) {
-  .meeting-room-board {
-    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
-
-    .board-header {
-      background: rgba(45, 55, 72, 0.95);
-      
       .board-title {
-        background: linear-gradient(135deg, #a0aec0, #e2e8f0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        margin: 0;
+        order: -1;
       }
-      
-      .current-date-time {
-        .current-date {
-          color: #e2e8f0;
-        }
-        
-        .current-time {
-          color: #a0aec0;
-        }
+
+      .current-datetime,
+      .board-actions {
+        width: 100%;
+        justify-content: center;
       }
     }
 
-    .section-title {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .room-card,
-    .meeting-item {
-      background: rgba(45, 55, 72, 0.95);
-      color: #e2e8f0;
-
-      .room-name,
-      .meeting-title {
-        color: #f7fafc;
-      }
+    .room-card {
+      padding: 16px;
     }
   }
 }
